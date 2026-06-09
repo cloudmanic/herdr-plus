@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -52,14 +51,12 @@ func launchControl(client *herdrClient) {
 	// keeps its default numbered name.
 	_ = client.tabRename(tab, controlProjectsTabLabel)
 
-	// Give the freshly spawned shell a brief moment to initialize before we send
-	// the command that starts the control UI.
-	time.Sleep(250 * time.Millisecond)
-
 	// Start the control UI in the new pane, handing it the control workspace id so
 	// it can tear the whole workspace down when the user picks a project or quits.
-	launch := fmt.Sprintf("%s control %s\n", shellQuote(exe), ws)
-	if err := client.sendInput(pane, launch); err != nil {
+	// runCommand waits for the new shell's prompt and submits with a real Enter
+	// key (not a trailing newline — see sendInput), so the UI starts reliably.
+	launch := fmt.Sprintf("%s control %s", shellQuote(exe), ws)
+	if err := client.runCommand(pane, launch); err != nil {
 		errExit("failed to start control UI:", err)
 	}
 }
@@ -174,14 +171,13 @@ func openProject(client *herdrClient, p Project, controlWS string) error {
 		}
 	}
 
-	// Let the freshly spawned shells initialize before we type into them, then
-	// run each tab's startup command (as if typed at the prompt).
-	if len(runs) > 0 {
-		time.Sleep(300 * time.Millisecond)
-		for _, r := range runs {
-			if err := client.sendInput(r.pane, r.command+"\n"); err != nil {
-				return fmt.Errorf("run command in pane %s: %w", r.pane, err)
-			}
+	// Run each tab's startup command. runCommand paces itself to each freshly
+	// spawned shell — waiting for its prompt, typing the command, then submitting
+	// with a real Enter key — so the apps (claude, lazygit, …) actually start
+	// instead of sitting unsubmitted at the prompt for the user to press Enter.
+	for _, r := range runs {
+		if err := client.runCommand(r.pane, r.command); err != nil {
+			return fmt.Errorf("run command in pane %s: %w", r.pane, err)
 		}
 	}
 

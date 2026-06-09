@@ -8,7 +8,9 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
+	"time"
 )
 
 // TestLiveSocketWorkspaceLifecycle exercises the real workspace/tab socket
@@ -55,8 +57,26 @@ func TestLiveSocketWorkspaceLifecycle(t *testing.T) {
 		t.Fatal("tabCreate returned empty pane id")
 	}
 
-	// Run a harmless command in the new pane the same way openProject does.
-	if err := client.sendInput(pane2, "true\n"); err != nil {
-		t.Fatalf("sendInput: %v", err)
+	// Run a command in the new pane the exact way openProject does — through
+	// runCommand — and confirm it actually executed by reading back its output.
+	// This is the regression guard for the bug where the command was only typed at
+	// the prompt (a trailing "\n" never submitted), so the app never started until
+	// the user pressed Enter. runCommand owns the startup-race handling (wait for
+	// prompt, type, wait for echo, real Enter), so the test needs no manual delays.
+	const marker = "herdr_plus_run_marker_8842"
+	if err := client.runCommand(pane2, "echo "+marker); err != nil {
+		t.Fatalf("runCommand: %v", err)
+	}
+
+	// Give the shell a moment to run the command, then read the pane. The marker
+	// must appear twice: once as the typed command line and once as echo's output.
+	// A single occurrence means it was typed but never submitted — the bug.
+	time.Sleep(750 * time.Millisecond)
+	out, err := client.paneRead(pane2, "visible", 20)
+	if err != nil {
+		t.Fatalf("paneRead: %v", err)
+	}
+	if got := strings.Count(out, marker); got < 2 {
+		t.Fatalf("command did not run: marker %q appeared %d time(s), want >= 2 (echoed command + its output). pane:\n%s", marker, got, out)
 	}
 }
