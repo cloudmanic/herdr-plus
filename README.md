@@ -64,7 +64,9 @@ command = "open https://github.com"
 ### Type: `select`
 
 Shows a second fuzzy list of options. The chosen option's `value` becomes
-`{{.Value}}`. If `value` is omitted, the `label` is used.
+`{{.Value}}`. If `value` is omitted, the `label` is used. An optional
+`description` shows dim text next to the label (the `value` itself is never
+shown, so you can encode data into it without cluttering the list).
 
 ```toml
 name = "Open Repo on GitHub"
@@ -75,10 +77,12 @@ command = "open https://github.com/cloudmanic/{{.Value}}"
 [[options]]
 label = "Herdr Plus"
 value = "herdr-plus"
+description = "cloudmanic/herdr-plus"
 
 [[options]]
 label = "Options Cafe"
 value = "options-cafe"
+description = "cloudmanic/options-cafe"
 ```
 
 ### Type: `form`

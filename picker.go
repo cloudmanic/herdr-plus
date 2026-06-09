@@ -267,17 +267,13 @@ func (m pickerModel) View() string {
 	return b.String()
 }
 
-// optionItems turns a select action's options into list rows. The value is shown
-// as a dim description only when it differs from the label, so a plain list of
-// values stays uncluttered.
+// optionItems turns a select action's options into list rows. A row shows its
+// label plus the option's optional description; the value is never shown, so
+// encoding data into the value (e.g. "host url") does not clutter the list.
 func optionItems(options []Option) []listItem {
 	items := make([]listItem, len(options))
 	for i, o := range options {
-		desc := ""
-		if o.Value != "" && o.Value != o.Label {
-			desc = o.Value
-		}
-		items[i] = listItem{name: o.Label, desc: desc}
+		items[i] = listItem{name: o.Label, desc: o.Description}
 	}
 	return items
 }

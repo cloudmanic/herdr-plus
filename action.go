@@ -30,10 +30,13 @@ const (
 
 // Option is one choice in a "select" action. Label is what the user sees in the
 // list; Value is what gets handed to the command. When Value is empty the Label
-// is used as the value too.
+// is used as the value too. Description, when set, is shown as dim text next to
+// the label — useful when the label alone isn't self-explanatory, or to keep a
+// long value out of the list.
 type Option struct {
-	Label string `toml:"label"`
-	Value string `toml:"value"`
+	Label       string `toml:"label"`
+	Value       string `toml:"value"`
+	Description string `toml:"description"`
 }
 
 // resolvedValue returns the value to hand to the command for this option.
