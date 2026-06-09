@@ -91,7 +91,10 @@ func runControl(controlWS string) {
 
 	dir, _ := projectsConfigDir()
 
-	p := tea.NewProgram(newControlModel(projects, dir), tea.WithAltScreen())
+	// WithMouseCellMotion enables click/release/wheel events so a project can be
+	// opened with the mouse. herdr forwards these to us once we ask for them;
+	// until then it keeps the mouse for its own pane focus/selection.
+	p := tea.NewProgram(newControlModel(projects, dir), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	result, err := p.Run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "herdr-plus:", err)

@@ -6,7 +6,11 @@
 
 package main
 
-import "testing"
+import (
+	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
 
 // TestOptionItems confirms select options render their label plus optional
 // description (never the raw value), that separators become non-selectable
@@ -84,5 +88,49 @@ func TestActionListItems(t *testing.T) {
 	}
 	if !only[0].selectable || only[0].name != "GitHub" || only[0].ref != 0 {
 		t.Fatalf("global-only item = %+v, want GitHub ref 0 with no heading", only[0])
+	}
+}
+
+// TestPickerMouseClickRunsAction confirms a left-button release over a command
+// row selects that action and quits so it runs — the click counterpart to enter.
+// With a global-only list (no headings) the rows sit just below the title bar and
+// query line: "build" at screen row 4, "test" at row 5.
+func TestPickerMouseClickRunsAction(t *testing.T) {
+	actions := []Action{
+		{Name: "build", Command: "make build", origin: originGlobal},
+		{Name: "test", Command: "make test", origin: originGlobal},
+	}
+	m := newPickerModel(ModeQuickActions, RunContext{}, actions)
+
+	updated, _ := m.Update(tea.MouseMsg{
+		Action: tea.MouseActionRelease,
+		Button: tea.MouseButtonLeft,
+		Y:      5,
+	})
+	pm, ok := updated.(pickerModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want pickerModel", updated)
+	}
+	if pm.chosen == nil || pm.chosen.Name != "test" {
+		t.Fatalf("clicking the 'test' row chose %v, want test", pm.chosen)
+	}
+}
+
+// TestPickerMouseWheelMoves confirms the scroll wheel walks the highlight without
+// running anything.
+func TestPickerMouseWheelMoves(t *testing.T) {
+	actions := []Action{
+		{Name: "build", Command: "make build", origin: originGlobal},
+		{Name: "test", Command: "make test", origin: originGlobal},
+	}
+	m := newPickerModel(ModeQuickActions, RunContext{}, actions)
+
+	updated, _ := m.Update(tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonWheelDown})
+	pm := updated.(pickerModel)
+	if pm.chosen != nil {
+		t.Fatal("the wheel should not run an action")
+	}
+	if got := pm.actionList.selectedIndex(); got != 1 {
+		t.Fatalf("after wheel down selected ref = %d, want 1 (test)", got)
 	}
 }

@@ -89,6 +89,38 @@ func TestControlModelFilterThenSelect(t *testing.T) {
 	}
 }
 
+// TestControlModelMouseClickOpens confirms a left-button release over a project
+// row opens it — the click counterpart to enter. With the title bar and query
+// line above, the two projects sit at screen rows 4 (Alpha) and 5 (Bravo).
+func TestControlModelMouseClickOpens(t *testing.T) {
+	m := newControlModel(sampleProjects(), "/cfg/projects")
+	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = step(t, m, tea.MouseMsg{
+		Action: tea.MouseActionRelease,
+		Button: tea.MouseButtonLeft,
+		Y:      5,
+	})
+
+	if m.chosen == nil || m.chosen.Name != "Bravo" {
+		t.Fatalf("clicking the Bravo row chose %v, want Bravo", m.chosen)
+	}
+}
+
+// TestControlModelMouseWheelMoves confirms the scroll wheel walks the highlight
+// without opening anything.
+func TestControlModelMouseWheelMoves(t *testing.T) {
+	m := newControlModel(sampleProjects(), "/cfg/projects")
+	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = step(t, m, tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonWheelDown})
+
+	if m.chosen != nil {
+		t.Fatal("the wheel should not open a project")
+	}
+	if got := m.list.selectedIndex(); got != 1 {
+		t.Fatalf("after wheel down selected ref = %d, want 1 (Bravo)", got)
+	}
+}
+
 // TestControlModelBrowserView confirms the populated view shows the header, the
 // project names, and the highlighted project's working directory in the detail
 // bar.

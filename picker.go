@@ -37,6 +37,11 @@ var (
 	headingStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#8B5CF6")).Bold(true)
 )
 
+// pickerHeaderLines is how many screen lines precede the embedded fuzzyList in
+// every picker stage: the title bar and the blank line under it. A mouse click's
+// screen row minus this offset is the list-local line passed to clickRow.
+const pickerHeaderLines = 2
+
 // stage is which screen the picker is currently showing.
 type stage int
 
@@ -144,6 +149,9 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		return m, nil
 
+	case tea.MouseMsg:
+		return m.updateMouse(msg)
+
 	case tea.KeyMsg:
 		switch m.stage {
 		case stageActions:
@@ -156,6 +164,41 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m.forwardToInput(msg)
+}
+
+// updateMouse turns mouse input into list navigation: the wheel moves the
+// highlight, and the left button selects the row under the pointer — running it
+// on release, the natural completion of a click. The text-only form stage has no
+// list, so it ignores the mouse. This works only because herdr forwards mouse
+// events to the focused pane's program once that program enables mouse reporting
+// (which runPicker now does via tea.WithMouseCellMotion); otherwise herdr would
+// keep the clicks for its own pane focus/selection.
+func (m pickerModel) updateMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	switch m.stage {
+	case stageActions:
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			m.actionList.moveUp()
+		case tea.MouseButtonWheelDown:
+			m.actionList.moveDown()
+		case tea.MouseButtonLeft:
+			if m.actionList.clickRow(msg.Y-pickerHeaderLines) && msg.Action == tea.MouseActionRelease {
+				return m.activateAction()
+			}
+		}
+	case stageSelect:
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			m.optionList.moveUp()
+		case tea.MouseButtonWheelDown:
+			m.optionList.moveDown()
+		case tea.MouseButtonLeft:
+			if m.optionList.clickRow(msg.Y-pickerHeaderLines) && msg.Action == tea.MouseActionRelease {
+				return m.activateOption()
+			}
+		}
+	}
+	return m, nil
 }
 
 // updateActions handles keys while choosing an action. Selecting a plain command
@@ -173,30 +216,37 @@ func (m pickerModel) updateActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.actionList.moveDown()
 		return m, nil
 	case "enter":
-		idx := m.actionList.selectedIndex()
-		if idx < 0 {
-			return m, nil
-		}
-		a := m.actions[idx]
-		switch a.effectiveType() {
-		case TypeSelect:
-			m.current = &a
-			m.optionList = newFuzzyList("Pick an option…", optionItems(a.Options))
-			m.stage = stageSelect
-			return m, textinput.Blink
-		case TypeForm:
-			m.current = &a
-			m.formInput = newFormInput(a.Form)
-			m.stage = stageForm
-			return m, textinput.Blink
-		default: // TypeCommand
-			m.chosen = &a
-			return m, tea.Quit
-		}
+		return m.activateAction()
 	}
 
 	cmd := m.actionList.editQuery(msg)
 	return m, cmd
+}
+
+// activateAction runs the highlighted action: a plain command quits so it can
+// run, while a select/form action advances to its input stage. It is shared by
+// the enter key and a left-click; activating with nothing selectable is a no-op.
+func (m pickerModel) activateAction() (tea.Model, tea.Cmd) {
+	idx := m.actionList.selectedIndex()
+	if idx < 0 {
+		return m, nil
+	}
+	a := m.actions[idx]
+	switch a.effectiveType() {
+	case TypeSelect:
+		m.current = &a
+		m.optionList = newFuzzyList("Pick an option…", optionItems(a.Options))
+		m.stage = stageSelect
+		return m, textinput.Blink
+	case TypeForm:
+		m.current = &a
+		m.formInput = newFormInput(a.Form)
+		m.stage = stageForm
+		return m, textinput.Blink
+	default: // TypeCommand
+		m.chosen = &a
+		return m, tea.Quit
+	}
 }
 
 // updateSelect handles keys while choosing an option for a select action. esc
@@ -217,17 +267,24 @@ func (m pickerModel) updateSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.optionList.moveDown()
 		return m, nil
 	case "enter":
-		idx := m.optionList.selectedIndex()
-		if idx < 0 {
-			return m, nil
-		}
-		m.value = m.current.Options[idx].resolvedValue()
-		m.chosen = m.current
-		return m, tea.Quit
+		return m.activateOption()
 	}
 
 	cmd := m.optionList.editQuery(msg)
 	return m, cmd
+}
+
+// activateOption records the highlighted option's value as the chosen action's
+// value and quits so the action runs. Shared by the enter key and a left-click;
+// activating with nothing selectable is a no-op.
+func (m pickerModel) activateOption() (tea.Model, tea.Cmd) {
+	idx := m.optionList.selectedIndex()
+	if idx < 0 {
+		return m, nil
+	}
+	m.value = m.current.Options[idx].resolvedValue()
+	m.chosen = m.current
+	return m, tea.Quit
 }
 
 // updateForm handles keys while entering text for a form action. esc returns to
@@ -281,7 +338,7 @@ func (m pickerModel) View() string {
 		b.WriteString("\n\n")
 		b.WriteString(m.optionList.view("no matching options"))
 		b.WriteString("\n")
-		b.WriteString(footerStyle.Render("↑/↓ move • enter select • esc back"))
+		b.WriteString(footerStyle.Render("↑/↓ move • click/enter select • esc back"))
 
 	case stageForm:
 		b.WriteString(titleStyle.Render(m.current.Name))
@@ -302,7 +359,7 @@ func (m pickerModel) View() string {
 		b.WriteString("\n\n")
 		b.WriteString(m.actionList.view("no matching actions"))
 		b.WriteString("\n")
-		b.WriteString(footerStyle.Render("↑/↓ move • enter run • esc cancel"))
+		b.WriteString(footerStyle.Render("↑/↓ move • click/enter run • esc cancel"))
 	}
 
 	return b.String()
@@ -357,7 +414,10 @@ func runPicker(mode Mode, ctx RunContext, selfPane string) {
 		return
 	}
 
-	p := tea.NewProgram(newPickerModel(mode, ctx, actions), tea.WithAltScreen())
+	// WithMouseCellMotion enables click/release/wheel events so a row can be run
+	// with the mouse. herdr forwards these to us once we ask for them; until then
+	// it keeps the mouse for its own pane focus/selection.
+	p := tea.NewProgram(newPickerModel(mode, ctx, actions), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	result, err := p.Run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "herdr-plus:", err)
