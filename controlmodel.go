@@ -205,12 +205,13 @@ func (m controlModel) detailBar(w int) string {
 
 	dirLine := dirIconStyle.Render("📁 ") + pathStyle.Render(truncate(p.expandedWorkingDir(), inner-3))
 
-	names := p.tabNames()
-	for i, n := range names {
-		names[i] = tabNameStyle.Render(n)
+	labels := p.tabLabels()
+	styled := make([]string, len(labels))
+	for i, n := range labels {
+		styled[i] = tabNameStyle.Render(n)
 	}
-	tabsLine := strings.Join(names, dotStyle.Render(" · "))
-	tabsLine = truncateStyled(tabsLine, p.tabNames(), inner)
+	tabsLine := strings.Join(styled, dotStyle.Render(" · "))
+	tabsLine = truncateStyled(tabsLine, labels, inner)
 
 	return box.Render(dirLine + "\n" + tabsLine)
 }

@@ -16,13 +16,57 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// ProjectTab is one tab in a project's workspace, in the order it should be
-// created. Name is the tab's label; Command, when set, is run in the tab's pane
-// on startup (via the herdr socket, as if typed at the shell). A tab with no
-// command is just an empty terminal.
-type ProjectTab struct {
-	Name    string `toml:"name"`
+// Split directions herdr's pane.split understands. "down" stacks the new pane
+// below the previous one (top/bottom); "right" puts it beside (side by side).
+const (
+	SplitDown  = "down"
+	SplitRight = "right"
+)
+
+// maxPanesPerTab caps how many panes a single tab may declare. A tab is split
+// into at most this many panes.
+const maxPanesPerTab = 4
+
+// ProjectPane is one pane within a tab. Command, when set, runs in the pane on
+// startup. Split is how the pane is created relative to the previous pane in the
+// tab — "down" or "right"; it is ignored for the first pane (the tab's root) and
+// defaults to "down" when omitted.
+type ProjectPane struct {
 	Command string `toml:"command"`
+	Split   string `toml:"split"`
+}
+
+// ProjectTab is one tab in a project's workspace, in the order it should be
+// created. Name is the tab's label. A tab is authored in one of two forms: the
+// single-pane shorthand sets Command directly; a split tab instead lists
+// [[tabs.panes]] (up to maxPanesPerTab of them). A tab with neither is an empty
+// terminal.
+type ProjectTab struct {
+	Name    string        `toml:"name"`
+	Command string        `toml:"command"`
+	Panes   []ProjectPane `toml:"panes"`
+}
+
+// effectivePanes returns the tab's panes in creation order, normalizing the two
+// authoring forms into one list. The first pane is the tab's root (its split is
+// cleared); each later pane carries the direction it splits off the previous
+// one, defaulting to "down".
+func (t ProjectTab) effectivePanes() []ProjectPane {
+	if len(t.Panes) == 0 {
+		return []ProjectPane{{Command: t.Command}}
+	}
+	panes := make([]ProjectPane, len(t.Panes))
+	for i, p := range t.Panes {
+		panes[i] = p
+		if i == 0 {
+			panes[i].Split = ""
+			continue
+		}
+		if panes[i].Split == "" {
+			panes[i].Split = SplitDown
+		}
+	}
+	return panes
 }
 
 // Project is a declarative herdr workspace template, loaded from one TOML file in
@@ -130,6 +174,23 @@ func (p Project) validate() error {
 		if strings.TrimSpace(t.Name) == "" {
 			return fmt.Errorf("project %q (%s): tab %d is missing a name", p.Name, p.source, i+1)
 		}
+		if len(t.Panes) > 0 && strings.TrimSpace(t.Command) != "" {
+			return fmt.Errorf("project %q (%s): tab %q sets both command and [[tabs.panes]]; use one or the other", p.Name, p.source, t.Name)
+		}
+		if len(t.Panes) > maxPanesPerTab {
+			return fmt.Errorf("project %q (%s): tab %q has %d panes; at most %d are allowed", p.Name, p.source, t.Name, len(t.Panes), maxPanesPerTab)
+		}
+		for j, pane := range t.Panes {
+			if j == 0 {
+				continue // the first pane is the tab's root; its split is ignored
+			}
+			switch pane.Split {
+			case "", SplitDown, SplitRight:
+				// ok — an empty split defaults to "down"
+			default:
+				return fmt.Errorf("project %q (%s): tab %q pane %d has split %q; must be %q or %q", p.Name, p.source, t.Name, j+1, pane.Split, SplitDown, SplitRight)
+			}
+		}
 	}
 	return nil
 }
@@ -151,12 +212,17 @@ func (p Project) expandedWorkingDir() string {
 	return os.ExpandEnv(dir)
 }
 
-// tabNames returns just the tab labels in order, for the one-line layout summary
-// shown in the control TUI's detail bar.
-func (p Project) tabNames() []string {
-	names := make([]string, len(p.Tabs))
+// tabLabels returns the tab names in order for the control TUI's detail bar,
+// annotating split tabs with a "×N" pane count so the layout is visible at a
+// glance (e.g. "server ×2").
+func (p Project) tabLabels() []string {
+	labels := make([]string, len(p.Tabs))
 	for i, t := range p.Tabs {
-		names[i] = t.Name
+		if n := len(t.effectivePanes()); n > 1 {
+			labels[i] = fmt.Sprintf("%s ×%d", t.Name, n)
+		} else {
+			labels[i] = t.Name
+		}
 	}
-	return names
+	return labels
 }

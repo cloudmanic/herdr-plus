@@ -58,6 +58,28 @@ Tabs open in file order; the first tab reuses the workspace's root tab and the r
 are created behind it. A tab with no `command` is just an empty shell. With no
 project files yet, control mode shows an onboarding screen explaining all of this.
 
+### Split panes within a tab
+
+A tab can hold up to **4 panes**. Instead of a single `command`, give the tab
+`[[tabs.panes]]` entries. Each pane after the first sets `split` to `"down"`
+(stacked, top/bottom) or `"right"` (side by side) — the direction it splits off the
+previous pane. An omitted `split` defaults to `"down"`.
+
+```toml
+[[tabs]]
+name = "server"
+
+[[tabs.panes]]
+command = "php artisan serve"
+
+[[tabs.panes]]
+command = "npm run dev"
+split = "down"
+```
+
+A tab uses *either* `command` *or* `[[tabs.panes]]`, not both. In the projects list,
+split tabs are shown with a `×N` pane count (e.g. `server ×2`).
+
 ## Installing
 
 **Homebrew** (the repo is its own tap):

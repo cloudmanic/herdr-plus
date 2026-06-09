@@ -131,7 +131,7 @@ func openProject(client *herdrClient, p Project, controlWS string) error {
 		return fmt.Errorf("create workspace: %w", err)
 	}
 
-	// pendingRun pairs a pane with the command it should run once all tabs exist.
+	// pendingRun pairs a pane with the command it should run once all panes exist.
 	type pendingRun struct {
 		pane    string
 		command string
@@ -140,21 +140,34 @@ func openProject(client *herdrClient, p Project, controlWS string) error {
 
 	// Create every tab in the project's order. tab[0] reuses the workspace's root
 	// tab (renamed); each later tab is created without focus so the first tab
-	// stays in front while the rest spin up.
+	// stays in front while the rest spin up. Within a tab, the first pane is the
+	// tab's root and each later pane is split off the previous one.
 	for i, t := range p.Tabs {
-		pane := rootPane
+		tabRoot := rootPane
 		if i == 0 {
 			if err := client.tabRename(rootTab, t.Name); err != nil {
 				return fmt.Errorf("rename root tab: %w", err)
 			}
 		} else {
-			_, pane, err = client.tabCreate(ws, t.Name, false)
+			_, tabRoot, err = client.tabCreate(ws, t.Name, false)
 			if err != nil {
 				return fmt.Errorf("create tab %q: %w", t.Name, err)
 			}
 		}
-		if strings.TrimSpace(t.Command) != "" {
-			runs = append(runs, pendingRun{pane: pane, command: t.Command})
+
+		prev := tabRoot
+		for j, pane := range t.effectivePanes() {
+			paneID := tabRoot
+			if j > 0 {
+				paneID, err = client.paneSplit(prev, pane.Split, false)
+				if err != nil {
+					return fmt.Errorf("split pane %d in tab %q: %w", j+1, t.Name, err)
+				}
+			}
+			if strings.TrimSpace(pane.Command) != "" {
+				runs = append(runs, pendingRun{pane: paneID, command: pane.Command})
+			}
+			prev = paneID
 		}
 	}
 

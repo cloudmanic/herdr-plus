@@ -137,7 +137,7 @@ func launchPicker(client *herdrClient, mode Mode) {
 
 	// Create the picker pane beneath the current one and focus it so keystrokes
 	// flow to the picker.
-	newPane, err := client.splitDown(paneID, true)
+	newPane, err := client.paneSplit(paneID, "down", true)
 	if err != nil {
 		errExit("split failed:", err)
 	}

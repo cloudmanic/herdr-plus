@@ -75,6 +75,54 @@ command = "make serve"
 	}
 }
 
+// TestLoadProjectsParsesSplitPanes confirms a tab authored with [[tabs.panes]]
+// loads with its panes, commands, and split directions intact.
+func TestLoadProjectsParsesSplitPanes(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	dir := projectsDirIn(t, tmp)
+
+	content := `name = "Rental Notice"
+working_dir = "/srv/rental"
+
+[[tabs]]
+name = "claude"
+command = "claude"
+
+[[tabs]]
+name = "server"
+
+[[tabs.panes]]
+command = "php artisan serve"
+
+[[tabs.panes]]
+command = "npm run dev"
+split = "down"
+`
+	if err := os.WriteFile(filepath.Join(dir, "rental.toml"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	projects, err := loadProjects()
+	if err != nil {
+		t.Fatalf("loadProjects: %v", err)
+	}
+	if len(projects) != 1 {
+		t.Fatalf("got %d projects, want 1", len(projects))
+	}
+
+	server := projects[0].Tabs[1]
+	if len(server.Panes) != 2 {
+		t.Fatalf("server panes = %d, want 2", len(server.Panes))
+	}
+	if server.Panes[0].Command != "php artisan serve" || server.Panes[1].Command != "npm run dev" {
+		t.Fatalf("pane commands wrong: %+v", server.Panes)
+	}
+	if server.Panes[1].Split != "down" {
+		t.Fatalf("pane 2 split = %q, want down", server.Panes[1].Split)
+	}
+}
+
 // TestLoadProjectsEmptyDirIsNotAnError confirms an empty projects directory
 // yields no projects (and no error), so the caller can show the empty-state.
 func TestLoadProjectsEmptyDirIsNotAnError(t *testing.T) {
@@ -110,6 +158,8 @@ func TestLoadProjectsRejectsInvalidFile(t *testing.T) {
 
 // TestProjectValidate exercises each validation rule directly.
 func TestProjectValidate(t *testing.T) {
+	twoPanes := []ProjectPane{{Command: "a"}, {Command: "b", Split: "down"}}
+	fivePanes := []ProjectPane{{}, {}, {}, {}, {}}
 	cases := []struct {
 		name    string
 		project Project
@@ -119,6 +169,11 @@ func TestProjectValidate(t *testing.T) {
 		{"missing name", Project{Tabs: []ProjectTab{{Name: "t"}}}, true},
 		{"no tabs", Project{Name: "A"}, true},
 		{"tab missing name", Project{Name: "A", Tabs: []ProjectTab{{Command: "ls"}}}, true},
+		{"ok multi-pane", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: twoPanes}}}, false},
+		{"command and panes", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Command: "ls", Panes: twoPanes}}}, true},
+		{"too many panes", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: fivePanes}}}, true},
+		{"bad split", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {Split: "sideways"}}}}}, true},
+		{"first pane split ignored", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{Split: "sideways"}}}}}, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -127,6 +182,50 @@ func TestProjectValidate(t *testing.T) {
 				t.Fatalf("validate() err = %v, wantErr = %v", err, c.wantErr)
 			}
 		})
+	}
+}
+
+// TestEffectivePanes confirms the two authoring forms normalize correctly: a
+// single-pane tab yields one pane, and a multi-pane tab clears the first pane's
+// split while defaulting later panes to "down".
+func TestEffectivePanes(t *testing.T) {
+	single := ProjectTab{Name: "claude", Command: "claude"}.effectivePanes()
+	if len(single) != 1 || single[0].Command != "claude" || single[0].Split != "" {
+		t.Fatalf("single-pane = %+v", single)
+	}
+
+	multi := ProjectTab{Name: "server", Panes: []ProjectPane{
+		{Command: "php artisan serve", Split: "right"}, // split on root is ignored
+		{Command: "npm run dev"},                       // omitted split defaults to down
+		{Command: "tail -f log", Split: "right"},
+	}}.effectivePanes()
+	if len(multi) != 3 {
+		t.Fatalf("got %d panes, want 3", len(multi))
+	}
+	if multi[0].Split != "" {
+		t.Fatalf("root pane split = %q, want empty", multi[0].Split)
+	}
+	if multi[1].Split != SplitDown {
+		t.Fatalf("pane 2 split = %q, want down (default)", multi[1].Split)
+	}
+	if multi[2].Split != SplitRight {
+		t.Fatalf("pane 3 split = %q, want right", multi[2].Split)
+	}
+}
+
+// TestTabLabels confirms split tabs are annotated with a "×N" pane count while
+// single-pane tabs show just their name.
+func TestTabLabels(t *testing.T) {
+	p := Project{Tabs: []ProjectTab{
+		{Name: "claude", Command: "claude"},
+		{Name: "server", Panes: []ProjectPane{{Command: "a"}, {Command: "b"}}},
+	}}
+	got := p.tabLabels()
+	if got[0] != "claude" {
+		t.Fatalf("label[0] = %q, want claude", got[0])
+	}
+	if got[1] != "server ×2" {
+		t.Fatalf("label[1] = %q, want \"server ×2\"", got[1])
 	}
 }
 

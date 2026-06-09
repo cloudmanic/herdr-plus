@@ -22,9 +22,18 @@ command = "lazygit"
 name = "editor"
 command = "spiceedit"
 
+# A tab can be split into up to 4 panes. Instead of a single `command`, give it
+# [[tabs.panes]]. Each pane after the first sets `split = "down"` (stacked) or
+# "right" (side by side) — how it splits off the previous pane (default "down").
 [[tabs]]
 name = "server"
-command = "make serve"
+
+[[tabs.panes]]
+command = "php artisan serve"
+
+[[tabs.panes]]
+command = "npm run dev"
+split = "down"
 
 [[tabs]]
 name = "terminal"   # no command — just an empty shell

@@ -84,10 +84,11 @@ func (c *herdrClient) call(method string, params map[string]any, out any) error 
 	return nil
 }
 
-// splitDown splits the target pane horizontally, creating a new pane beneath it,
-// and returns the new pane's id. When focus is true the new pane becomes the
-// focused pane (the socket API does not focus new panes by default).
-func (c *herdrClient) splitDown(targetPaneID string, focus bool) (string, error) {
+// paneSplit splits the target pane in the given direction ("down" for a new pane
+// beneath it, "right" for one beside it), creating a new pane, and returns the
+// new pane's id. When focus is true the new pane becomes the focused pane (the
+// socket API does not focus new panes by default).
+func (c *herdrClient) paneSplit(targetPaneID, direction string, focus bool) (string, error) {
 	var out struct {
 		Pane struct {
 			PaneID string `json:"pane_id"`
@@ -95,7 +96,7 @@ func (c *herdrClient) splitDown(targetPaneID string, focus bool) (string, error)
 	}
 	err := c.call("pane.split", map[string]any{
 		"target_pane_id": targetPaneID,
-		"direction":      "down",
+		"direction":      direction,
 		"focus":          focus,
 	}, &out)
 	if err != nil {
