@@ -1,0 +1,371 @@
+{{ define "main" }}
+{{- $p := .Site.Params -}}
+{{- $home := .Site.Home.RelPermalink -}}
+
+<!-- ============================================================ HERO -->
+<section class="relative overflow-hidden">
+  <div class="glow-accent pointer-events-none absolute inset-x-0 top-0 -z-10 h-[560px]"></div>
+  <div class="grid-bg pointer-events-none absolute inset-x-0 top-0 -z-10 h-[560px]"></div>
+
+  <div class="container-x pt-16 pb-10 text-center sm:pt-24">
+    <a href="{{ $p.herdrUrl }}" target="_blank" rel="noopener" class="pill rise mx-auto">
+      {{ partial "icon.html" (dict "name" "puzzle" "class" "h-3.5 w-3.5") }}
+      <span>An extension platform for <span class="font-mono font-semibold" style="color:var(--color-ink)">herdr</span></span>
+    </a>
+
+    <h1 class="rise mx-auto mt-6 max-w-4xl text-balance text-5xl leading-[1.05] sm:text-6xl md:text-7xl">
+      Supercharge <span style="color:var(--color-accent-ink)">herdr</span>.
+    </h1>
+
+    <p class="rise mx-auto mt-6 max-w-2xl text-pretty text-lg sm:text-xl" style="color:var(--color-muted)">
+      {{ $p.subtagline }}
+    </p>
+
+    <div class="rise mt-8 flex flex-wrap items-center justify-center gap-3">
+      <a href="#install" class="btn btn-primary">
+        {{ partial "icon.html" (dict "name" "bolt" "class" "h-4 w-4") }} Install in one line
+      </a>
+      <a href="{{ "docs/quick-start/" | relURL }}" class="btn btn-secondary">
+        Read the quick start {{ partial "icon.html" (dict "name" "arrow-right" "class" "h-4 w-4") }}
+      </a>
+    </div>
+
+    <div class="rise mx-auto mt-7 max-w-xl">
+      {{ partial "codebox.html" (dict "cmd" $p.scriptInstallCmd) }}
+      <p class="mt-3 text-sm" style="color:var(--color-faint)">Open source · Free forever · macOS &amp; Linux · no Electron</p>
+    </div>
+  </div>
+
+  <!-- ----------------------------------------- product tour video -->
+  <div class="container-x pb-8">
+    <figure class="rise mx-auto max-w-5xl">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="terminal-dot" style="background:#f7768e"></span>
+          <span class="terminal-dot" style="background:#e0af68"></span>
+          <span class="terminal-dot" style="background:#9ece6a"></span>
+          <span class="terminal-title">herdr plus — product tour</span>
+        </div>
+        {{ with $p.heroVideoUrl }}
+        <div class="relative w-full" style="aspect-ratio:16/9; background:#000">
+          <iframe class="absolute inset-0 h-full w-full" src="{{ . }}" title="herdr plus product tour"
+            loading="lazy" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        {{ else }}
+        <!-- placeholder until the tour video is published -->
+        <div class="relative grid place-items-center overflow-hidden" style="aspect-ratio:16/9; background:var(--color-term-bg)">
+          <div class="absolute inset-0 p-6 font-mono text-[12px] leading-relaxed opacity-50 sm:text-sm" aria-hidden="true">
+            <div><span class="t-dim">~/Development/options-cafe</span> <span class="t-path">master</span></div>
+            <div><span class="t-prompt">❯</span> <span class="t-cmd">herdr-plus</span> <span class="t-dim"># prefix+up → projects</span></div>
+            <div class="t-out mt-2">▸ Options Cafe        <span class="t-dim">claude · lazygit · server ×2 · term</span></div>
+            <div class="t-out">▸ Skyclerk           <span class="t-dim">api · web · db</span></div>
+            <div class="t-out">▸ herdr-plus         <span class="t-dim">edit · test · docs</span></div>
+            <div class="mt-3"><span class="t-prompt">❯</span> <span class="t-cmd">herdr-plus</span> --mode=quick-actions <span class="t-dim"># prefix+down</span></div>
+            <div class="t-dim mt-1">PROJECT</div>
+            <div class="t-out">  make build · make test</div>
+            <div class="t-dim">GLOBAL</div>
+            <div class="t-out">  GitHub · Search Google · Open Repo<span class="cursor"></span></div>
+          </div>
+          <div class="relative z-10 flex flex-col items-center gap-3 text-center">
+            <span class="grid h-16 w-16 place-items-center rounded-full shadow-lg" style="background:var(--color-accent); color:#fff">
+              <svg class="h-7 w-7 translate-x-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            </span>
+            <span class="pill">Product tour — coming soon</span>
+          </div>
+        </div>
+        {{ end }}
+      </div>
+      <figcaption class="mt-3 text-center text-sm" style="color:var(--color-faint)">
+        Watch herdr-plus spin up a whole workspace and launch actions without leaving your terminal.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ===================================================== WHAT IS IT -->
+<section class="container-x py-16 sm:py-20">
+  <div class="grid items-center gap-12 lg:grid-cols-2">
+    <div>
+      <p class="eyebrow">New here? Start with this</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl">It’s a plugin layer for your terminal.</h2>
+      <div class="mt-5 space-y-4 text-pretty text-lg" style="color:var(--color-muted)">
+        <p>
+          <a href="{{ $p.herdrUrl }}" target="_blank" rel="noopener" class="link-accent">herdr</a> is a
+          terminal multiplexer and agent runtime — tmux-style panes, persistent sessions, and an API
+          that agents can drive. <strong style="color:var(--color-ink)">herdr-plus</strong> is the open-source
+          extension platform that sits on top of it.
+        </p>
+        <p>
+          One small binary, installed as a herdr keybinding. Two features today —
+          <strong style="color:var(--color-ink)">Quick Actions</strong> and
+          <strong style="color:var(--color-ink)">Projects</strong> — with a plugin-style
+          <em>modes</em> system designed to grow. Everything is driven by plain TOML files you own.
+        </p>
+      </div>
+      <div class="mt-7 flex flex-wrap gap-3">
+        <a href="#quick-actions" class="btn btn-secondary btn-sm">{{ partial "icon.html" (dict "name" "bolt" "class" "h-4 w-4") }} Quick Actions</a>
+        <a href="#projects" class="btn btn-secondary btn-sm">{{ partial "icon.html" (dict "name" "layers" "class" "h-4 w-4") }} Projects</a>
+        <a href="{{ $p.herdrInstallUrl }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">Don’t have herdr yet? {{ partial "icon.html" (dict "name" "external" "class" "h-3.5 w-3.5") }}</a>
+      </div>
+    </div>
+
+    <!-- layered diagram -->
+    <div class="relative mx-auto w-full max-w-md">
+      <div class="space-y-3">
+        <div class="card card-hover flex items-center gap-3 border-dashed p-4" style="border-color:var(--color-line-strong)">
+          <span class="icon-tile">{{ partial "icon.html" (dict "name" "sparkle" "class" "h-5 w-5") }}</span>
+          <div>
+            <p class="font-semibold">More modes <span class="pill ml-1 !py-0.5 !px-2 text-[11px]">soon</span></p>
+            <p class="text-sm" style="color:var(--color-muted)">A plugin system that keeps growing.</p>
+          </div>
+        </div>
+        <div class="card card-hover flex items-center gap-3 p-4">
+          <span class="icon-tile">{{ partial "icon.html" (dict "name" "layers" "class" "h-5 w-5") }}</span>
+          <div>
+            <p class="font-semibold">+ Projects</p>
+            <p class="text-sm" style="color:var(--color-muted)">Whole workspaces from one file.</p>
+          </div>
+        </div>
+        <div class="card card-hover flex items-center gap-3 p-4">
+          <span class="icon-tile">{{ partial "icon.html" (dict "name" "bolt" "class" "h-5 w-5") }}</span>
+          <div>
+            <p class="font-semibold">+ Quick Actions</p>
+            <p class="text-sm" style="color:var(--color-muted)">A fuzzy launcher in any tab.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 rounded-[14px] p-4" style="background:var(--color-spotlight); color:var(--color-spotlight-ink)">
+          <span class="grid h-11 w-11 place-items-center rounded-[11px]" style="background:rgba(255,255,255,.14)">
+            {{ partial "icon.html" (dict "name" "terminal" "class" "h-5 w-5") }}
+          </span>
+          <div>
+            <p class="font-mono font-semibold">herdr</p>
+            <p class="text-sm" style="color:color-mix(in srgb, var(--color-spotlight-ink) 72%, transparent)">The terminal underneath it all.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================== QUICK ACTIONS -->
+<section id="quick-actions" class="scroll-mt-24 border-y" style="border-color:var(--color-line); background:color-mix(in srgb, var(--color-surface-2) 35%, transparent)">
+  <div class="container-x grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-2">
+    <!-- mockup: the picker -->
+    <div class="order-2 lg:order-1">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="terminal-dot" style="background:#f7768e"></span>
+          <span class="terminal-dot" style="background:#e0af68"></span>
+          <span class="terminal-dot" style="background:#9ece6a"></span>
+          <span class="terminal-title">prefix + down</span>
+        </div>
+        <div class="terminal-body">
+          <div><span class="t-prompt">❯</span> <span class="t-cmd">herdr-plus</span> --mode=quick-actions</div>
+          <div class="mt-3 rounded-lg border p-2" style="border-color:var(--color-term-line)">
+            <div class="t-dim">  search…</div>
+            <div class="mt-1 t-dim text-[11px]">PROJECT</div>
+            <div class="t-out">  make build        <span class="t-dim">make build</span></div>
+            <div class="t-out">  make test         <span class="t-dim">make test</span></div>
+            <div class="mt-1 t-dim text-[11px]">GLOBAL</div>
+            <div class="rounded px-1" style="background:var(--color-accent); color:#fff">▸ Search Google     <span style="opacity:.85">type a query…</span></div>
+            <div class="t-out">  GitHub            <span class="t-dim">open github.com</span></div>
+            <div class="t-out">  Open Repo         <span class="t-dim">pick a repo &amp; open it</span></div>
+          </div>
+          <div class="mt-2 t-dim text-[11px]">↑↓ move · ⏎ run · esc cancel</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="order-1 lg:order-2">
+      <p class="eyebrow">{{ partial "icon.html" (dict "name" "bolt" "class" "h-4 w-4") }} Quick Actions</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl">A fuzzy launcher in any tab.</h2>
+      <p class="mt-5 text-pretty text-lg" style="color:var(--color-muted)">
+        Hit <span class="kbd">prefix</span> <span class="kbd">↓</span> and a focused split opens beneath your pane.
+        Fuzzy-find an action, press enter, and it runs — then the split closes itself. Your hands never leave the keyboard.
+      </p>
+      <ul class="mt-6 space-y-3">
+        <li class="flex gap-3"><span class="mt-1 shrink-0 text-green">{{ partial "icon.html" (dict "name" "check" "class" "h-4 w-4") }}</span><span><strong>Three action types</strong> — run a <code class="font-mono text-sm">command</code>, pick from a <code class="font-mono text-sm">select</code> list, or type into a <code class="font-mono text-sm">form</code>.</span></li>
+        <li class="flex gap-3"><span class="mt-1 shrink-0 text-green">{{ partial "icon.html" (dict "name" "check" "class" "h-4 w-4") }}</span><span><strong>Per-project actions</strong> — drop a <code class="font-mono text-sm">.herdr-plus/</code> folder in a repo and its actions appear, grouped, only there.</span></li>
+        <li class="flex gap-3"><span class="mt-1 shrink-0 text-green">{{ partial "icon.html" (dict "name" "check" "class" "h-4 w-4") }}</span><span><strong>Context-aware</strong> — commands are Go templates with <code class="font-mono text-sm">{{ "{{.WorkDir}}" }}</code>, <code class="font-mono text-sm">{{ "{{.Value}}" }}</code>, and more, also exported as <code class="font-mono text-sm">HERDR_PLUS_*</code> env vars.</span></li>
+        <li class="flex gap-3"><span class="mt-1 shrink-0 text-green">{{ partial "icon.html" (dict "name" "check" "class" "h-4 w-4") }}</span><span><strong>Just files</strong> — one TOML per action in <code class="font-mono text-sm">~/.config/herdr-plus/</code>. Add a file, get an action.</span></li>
+      </ul>
+      <a href="{{ "docs/quick-actions/" | relURL }}" class="mt-7 inline-flex link-accent">Quick Actions docs {{ partial "icon.html" (dict "name" "arrow-right" "class" "ml-1 h-4 w-4") }}</a>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================= PROJECTS -->
+<section id="projects" class="scroll-mt-24">
+  <div class="container-x grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-2">
+    <div>
+      <p class="eyebrow">{{ partial "icon.html" (dict "name" "layers" "class" "h-4 w-4") }} Projects</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl">Whole workspaces from one file.</h2>
+      <p class="mt-5 text-pretty text-lg" style="color:var(--color-muted)">
+        Hit <span class="kbd">prefix</span> <span class="kbd">↑</span>, pick a project, and herdr-plus builds the entire
+        workspace — every tab created, every split laid out, every startup command running. It replaces hand-written
+        workspace shell scripts with a config file you can read at a glance.
+      </p>
+      <ul class="mt-6 space-y-3">
+        <li class="flex gap-3"><span class="mt-1 shrink-0 text-green">{{ partial "icon.html" (dict "name" "check" "class" "h-4 w-4") }}</span><span><strong>Declarative tabs</strong> — a name, a working directory, and an ordered list of tabs with startup commands.</span></li>
+        <li class="flex gap-3"><span class="mt-1 shrink-0 text-green">{{ partial "icon.html" (dict "name" "check" "class" "h-4 w-4") }}</span><span><strong>Split panes</strong> — up to four panes per tab, stacked <code class="font-mono text-sm">down</code> or side-by-side <code class="font-mono text-sm">right</code>.</span></li>
+        <li class="flex gap-3"><span class="mt-1 shrink-0 text-green">{{ partial "icon.html" (dict "name" "check" "class" "h-4 w-4") }}</span><span><strong>Paths that expand</strong> — <code class="font-mono text-sm">~</code> and <code class="font-mono text-sm">$VARS</code> resolve in <code class="font-mono text-sm">working_dir</code>.</span></li>
+        <li class="flex gap-3"><span class="mt-1 shrink-0 text-green">{{ partial "icon.html" (dict "name" "check" "class" "h-4 w-4") }}</span><span><strong>One file per project</strong> — kept in <code class="font-mono text-sm">~/.config/herdr-plus/projects/</code>. Versionable, shareable, yours.</span></li>
+      </ul>
+      <a href="{{ "docs/projects/" | relURL }}" class="mt-7 inline-flex link-accent">Projects docs {{ partial "icon.html" (dict "name" "arrow-right" "class" "ml-1 h-4 w-4") }}</a>
+    </div>
+
+    <!-- mockup: TOML → workspace -->
+    <div class="space-y-4">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="terminal-dot" style="background:#f7768e"></span>
+          <span class="terminal-dot" style="background:#e0af68"></span>
+          <span class="terminal-dot" style="background:#9ece6a"></span>
+          <span class="terminal-title">~/.config/herdr-plus/projects/options-cafe.toml</span>
+        </div>
+        <div class="terminal-body">
+<pre class="!m-0 !border-0 !bg-transparent !p-0" style="font:inherit"><span class="t-key">name</span> = <span class="t-str">"Options Cafe"</span>
+<span class="t-key">working_dir</span> = <span class="t-str">"~/Development/options-cafe"</span>
+
+<span class="t-dim">[[tabs]]</span>
+<span class="t-key">name</span> = <span class="t-str">"claude"</span>
+<span class="t-key">command</span> = <span class="t-str">"claude --chrome"</span>
+
+<span class="t-dim">[[tabs]]</span>
+<span class="t-key">name</span> = <span class="t-str">"server"</span>
+<span class="t-dim">  [[tabs.panes]]</span>
+  <span class="t-key">command</span> = <span class="t-str">"php artisan serve"</span>
+<span class="t-dim">  [[tabs.panes]]</span>
+  <span class="t-key">command</span> = <span class="t-str">"npm run dev"</span>
+  <span class="t-key">split</span> = <span class="t-str">"down"</span></pre>
+        </div>
+      </div>
+
+      <div class="flex justify-center" style="color:var(--color-faint)">{{ partial "icon.html" (dict "name" "arrow-right" "class" "h-5 w-5 rotate-90") }}</div>
+
+      <div class="terminal">
+        <div class="term-tabs">
+          <span class="term-tab is-active">claude</span>
+          <span class="term-tab">lazygit</span>
+          <span class="term-tab">server ×2</span>
+          <span class="term-tab">terminal</span>
+          <span class="term-tab">+</span>
+        </div>
+        <div class="terminal-body !pt-3">
+          <div><span class="t-dim">~/Development/options-cafe</span></div>
+          <div><span class="t-prompt">❯</span> <span class="t-cmd">claude</span> --chrome</div>
+          <div class="t-out">  ✻ Ready. The whole workspace, one keypress away.<span class="cursor"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================== WHY / GRID -->
+<section class="border-y" style="border-color:var(--color-line); background:color-mix(in srgb, var(--color-surface-2) 35%, transparent)">
+  <div class="container-x py-16 sm:py-20">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="eyebrow justify-center">Built the way terminal people like it</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl">Small, fast, and entirely yours.</h2>
+    </div>
+    <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {{ $features := slice
+        (dict "icon" "terminal" "title" "Plain TOML, no UI" "body" "Every action and project is a file you can read, edit, version, and share. No databases, no dashboards.")
+        (dict "icon" "bolt" "title" "Keyboard-native" "body" "Bound to your herdr prefix. Fuzzy-find, run, done — the launcher closes itself when the action fires.")
+        (dict "icon" "puzzle" "title" "A modes system" "body" "One binary, many modes. Control and Quick Actions today; the plugin surface is designed to grow.")
+        (dict "icon" "layers" "title" "Per-repo extensions" "body" "Ship a .herdr-plus/ folder with a repo and its actions show up — grouped and scoped — only inside it.")
+        (dict "icon" "check" "title" "Idempotent install" "body" "herdr-plus install wires the keybinding and reloads herdr. It won’t duplicate or clobber an existing binding.")
+        (dict "icon" "sparkle" "title" "Free & open source" "body" "MIT-licensed, no telemetry, no lock-in. Auto-updates via Homebrew or the install script on every release.")
+      }}
+      {{ range $features }}
+      <div class="card card-hover p-6">
+        <span class="icon-tile">{{ partial "icon.html" (dict "name" .icon "class" "h-5 w-5") }}</span>
+        <h3 class="mt-4 text-lg">{{ .title }}</h3>
+        <p class="mt-2 text-sm leading-relaxed" style="color:var(--color-muted)">{{ .body }}</p>
+      </div>
+      {{ end }}
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================== INSTALL -->
+<section id="install" class="scroll-mt-24">
+  <div class="container-x py-16 sm:py-24">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="eyebrow justify-center">{{ partial "icon.html" (dict "name" "bolt" "class" "h-4 w-4") }} Get started</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl">Up and running in under a minute.</h2>
+      <p class="mt-4 text-pretty text-lg" style="color:var(--color-muted)">
+        You’ll need <a href="{{ $p.herdrInstallUrl }}" target="_blank" rel="noopener" class="link-accent">herdr</a> installed first. Then:
+      </p>
+    </div>
+
+    <div class="mx-auto mt-10 grid max-w-5xl gap-6 lg:grid-cols-3">
+      <!-- step 1 -->
+      <div class="card p-6">
+        <div class="flex items-center gap-3"><span class="step-num">1</span><h3 class="text-lg">Install the binary</h3></div>
+        <p class="mt-3 text-sm" style="color:var(--color-muted)">Homebrew or a one-line script — your pick.</p>
+        <div class="mt-4">{{ partial "install-box.html" (dict "id" "install-section" "ctx" .) }}</div>
+      </div>
+      <!-- step 2 -->
+      <div class="card p-6">
+        <div class="flex items-center gap-3"><span class="step-num">2</span><h3 class="text-lg">Bind the keys</h3></div>
+        <p class="mt-3 text-sm" style="color:var(--color-muted)">Wire the keybindings into herdr (it reloads automatically).</p>
+        <div class="mt-4 space-y-2">
+          {{ partial "codebox.html" (dict "cmd" "herdr-plus install") }}
+          {{ partial "codebox.html" (dict "cmd" "herdr-plus install --mode=quick-actions") }}
+        </div>
+        <p class="mt-3 text-xs" style="color:var(--color-faint)">Control → <span class="kbd">prefix</span> <span class="kbd">↑</span> · Quick Actions → <span class="kbd">prefix</span> <span class="kbd">↓</span></p>
+      </div>
+      <!-- step 3 -->
+      <div class="card p-6">
+        <div class="flex items-center gap-3"><span class="step-num">3</span><h3 class="text-lg">Press the key</h3></div>
+        <p class="mt-3 text-sm" style="color:var(--color-muted)">Inside herdr, hit your prefix and the bound key:</p>
+        <div class="mt-4 space-y-3 text-sm">
+          <div class="flex items-center gap-2"><span class="kbd">ctrl+b</span><span style="color:var(--color-faint)">then</span><span class="kbd">↑</span><span style="color:var(--color-muted)">→ Projects</span></div>
+          <div class="flex items-center gap-2"><span class="kbd">ctrl+b</span><span style="color:var(--color-faint)">then</span><span class="kbd">↓</span><span style="color:var(--color-muted)">→ Quick Actions</span></div>
+        </div>
+        <a href="{{ "docs/quick-start/" | relURL }}" class="mt-5 inline-flex link-accent text-sm">Full quick start {{ partial "icon.html" (dict "name" "arrow-right" "class" "ml-1 h-4 w-4") }}</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================== DOCS + LLM CTA -->
+<section class="container-x pb-24">
+  <div class="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+    <!-- docs -->
+    <div class="relative overflow-hidden rounded-[20px] p-8 sm:p-10" style="background:var(--color-spotlight); color:var(--color-spotlight-ink)">
+      <div class="glow-accent pointer-events-none absolute inset-0 opacity-40"></div>
+      <div class="relative">
+        <span class="grid h-11 w-11 place-items-center rounded-[11px]" style="background:rgba(255,255,255,.14)">{{ partial "icon.html" (dict "name" "book" "class" "h-5 w-5") }}</span>
+        <h2 class="mt-5 text-3xl" style="color:var(--color-spotlight-ink)">Everything is documented.</h2>
+        <p class="mt-3 max-w-lg text-pretty" style="color:color-mix(in srgb, var(--color-spotlight-ink) 78%, transparent)">
+          Quick starts, every config field, the full action and project schemas, template variables, a copy-paste
+          cookbook, and troubleshooting. Read it top to bottom and you’ll know the whole product.
+        </p>
+        <div class="mt-7 flex flex-wrap gap-3">
+          <a href="{{ "docs/" | relURL }}" class="btn btn-primary">Read the docs {{ partial "icon.html" (dict "name" "arrow-right" "class" "h-4 w-4") }}</a>
+          <a href="{{ "docs/examples/" | relURL }}" class="btn btn-secondary" style="background:transparent; color:var(--color-spotlight-ink); border-color:color-mix(in srgb, var(--color-spotlight-ink) 30%, transparent)">Examples &amp; cookbook</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- llms.txt -->
+    <div class="card flex flex-col p-8 sm:p-10">
+      <span class="icon-tile">{{ partial "icon.html" (dict "name" "sparkle" "class" "h-5 w-5") }}</span>
+      <h2 class="mt-5 text-2xl">Built for agents, too.</h2>
+      <p class="mt-3 text-pretty" style="color:var(--color-muted)">
+        Point an LLM or coding agent at <code class="font-mono text-sm">/llms.txt</code> for a structured index, or
+        <code class="font-mono text-sm">/llms-full.txt</code> for the entire docs in one plain-text fetch.
+      </p>
+      <div class="mt-auto space-y-2 pt-6">
+        {{ partial "codebox.html" (dict "cmd" "curl -s https://herdrplus.com/llms-full.txt" "prompt" "$") }}
+        <div class="flex gap-3 pt-1 text-sm">
+          <a href="{{ "llms.txt" | relURL }}" class="link-accent">llms.txt</a>
+          <a href="{{ "llms-full.txt" | relURL }}" class="link-accent">llms-full.txt</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{{ end }}

@@ -1,0 +1,65 @@
+{{- /* footer.html — site footer with link columns + Cloudmanic Labs attribution. */ -}}
+{{- $p := .Site.Params -}}
+<footer class="mt-24 border-t" style="border-color:var(--color-line); background:color-mix(in srgb, var(--color-surface-2) 40%, transparent)">
+  <div class="container-x py-14">
+    <div class="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div>
+        {{ partial "brand.html" (dict "size" "md") }}
+        <p class="mt-4 max-w-xs text-sm leading-relaxed" style="color:var(--color-muted)">
+          An open-source extension platform for the <a href="{{ $p.herdrUrl }}" target="_blank" rel="noopener" class="link-accent">herdr</a> terminal. Quick actions and projects, free forever.
+        </p>
+        <div class="mt-5 flex items-center gap-2">
+          <a href="{{ $p.githubUrl }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+            {{ partial "icon.html" (dict "name" "github" "class" "h-4 w-4") }} GitHub
+          </a>
+          <span class="pill">★ Open source · MIT</span>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="doc-group-title mb-3">Product</h4>
+        <ul class="space-y-2 text-sm" style="color:var(--color-muted)">
+          <li><a href="{{ "docs/" | relURL }}" class="hover:underline underline-offset-4">Documentation</a></li>
+          <li><a href="{{ "docs/quick-start/" | relURL }}" class="hover:underline underline-offset-4">Quick start</a></li>
+          <li><a href="{{ "docs/projects/" | relURL }}" class="hover:underline underline-offset-4">Projects</a></li>
+          <li><a href="{{ "docs/quick-actions/" | relURL }}" class="hover:underline underline-offset-4">Quick actions</a></li>
+          <li><a href="{{ "docs/examples/" | relURL }}" class="hover:underline underline-offset-4">Examples</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="doc-group-title mb-3">Resources</h4>
+        <ul class="space-y-2 text-sm" style="color:var(--color-muted)">
+          <li><a href="{{ $p.releasesUrl }}" target="_blank" rel="noopener" class="hover:underline underline-offset-4">Releases</a></li>
+          <li><a href="{{ "docs/configuration/" | relURL }}" class="hover:underline underline-offset-4">Configuration</a></li>
+          <li><a href="{{ "docs/troubleshooting/" | relURL }}" class="hover:underline underline-offset-4">Troubleshooting</a></li>
+          <li><a href="{{ "llms.txt" | relURL }}" class="hover:underline underline-offset-4">llms.txt</a></li>
+          <li><a href="{{ "llms-full.txt" | relURL }}" class="hover:underline underline-offset-4">llms-full.txt</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="doc-group-title mb-3">Ecosystem</h4>
+        <ul class="space-y-2 text-sm" style="color:var(--color-muted)">
+          <li><a href="{{ $p.herdrUrl }}" target="_blank" rel="noopener" class="hover:underline underline-offset-4">herdr.dev ↗</a></li>
+          <li><a href="{{ $p.herdrInstallUrl }}" target="_blank" rel="noopener" class="hover:underline underline-offset-4">Install herdr ↗</a></li>
+          <li><a href="{{ $p.licenseUrl }}" target="_blank" rel="noopener" class="hover:underline underline-offset-4">License (MIT)</a></li>
+          <li><a href="{{ $p.cloudmanicUrl }}" target="_blank" rel="noopener" class="hover:underline underline-offset-4">Cloudmanic Labs ↗</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="divider mt-12 mb-6"></div>
+
+    <div class="flex flex-col items-start justify-between gap-3 text-sm sm:flex-row sm:items-center" style="color:var(--color-faint)">
+      <p>
+        An open-source contribution from
+        <a href="{{ $p.cloudmanicUrl }}" target="_blank" rel="noopener" class="link-accent">Cloudmanic Labs</a>.
+        © {{ now.Year }} {{ $p.company }}.
+      </p>
+      <p class="inline-flex items-center gap-1.5">
+        Built with {{ partial "icon.html" (dict "name" "heart" "class" "h-3.5 w-3.5 inline") }} in {{ $p.location }}
+      </p>
+    </div>
+  </div>
+</footer>

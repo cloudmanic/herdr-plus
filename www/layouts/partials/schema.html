@@ -1,0 +1,34 @@
+{{- /* schema.html — JSON-LD structured data for the home page (SEO). */ -}}
+{{- $p := .Site.Params -}}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "name": "Cloudmanic Labs, LLC",
+      "url": "{{ $p.cloudmanicUrl }}",
+      "logo": "{{ "images/icon-512.png" | absURL }}"
+    },
+    {
+      "@type": "WebSite",
+      "name": "herdr plus",
+      "url": "{{ .Site.BaseURL }}",
+      "description": {{ $p.description | jsonify }}
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "herdr-plus",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "macOS, Linux",
+      "description": {{ $p.description | jsonify }},
+      "url": "{{ .Site.BaseURL }}",
+      "downloadUrl": "{{ $p.githubUrl }}",
+      "license": "{{ $p.licenseUrl }}",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Organization", "name": "Cloudmanic Labs, LLC", "url": "{{ $p.cloudmanicUrl }}" }
+    }
+  ]
+}
+</script>

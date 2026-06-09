@@ -20,6 +20,12 @@ name: Release
 on:
   push:
     branches: [main]
+    # Website-only changes ship via .github/workflows/site.yml and must NOT
+    # cut a new binary release. paths-ignore skips this workflow only when
+    # *every* changed file matches, so a mixed code+site commit still releases.
+    paths-ignore:
+      - "www/**"
+      - ".github/workflows/site.yml"
   # Manual escape hatch. If a merge commit accidentally carries a skip-CI
   # marker (or anything else suppresses the auto-trigger), we can rerun the
   # release flow against the current main without an empty no-op commit.

@@ -1,0 +1,16 @@
+{{ define "main" }}
+<section class="relative overflow-hidden">
+  <div class="glow-accent pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px]"></div>
+  <div class="container-x flex min-h-[70vh] flex-col items-center justify-center py-24 text-center">
+    <p class="font-mono text-7xl font-semibold" style="color:var(--color-accent-ink)">404</p>
+    <h1 class="mt-4 text-3xl">This pane is empty.</h1>
+    <p class="mt-3 max-w-md text-pretty" style="color:var(--color-muted)">
+      The page you’re after doesn’t exist (or moved). Let’s get you back to something useful.
+    </p>
+    <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
+      <a href="{{ .Site.Home.RelPermalink }}" class="btn btn-primary">Home</a>
+      <a href="{{ "docs/" | relURL }}" class="btn btn-secondary">Documentation</a>
+    </div>
+  </div>
+</section>
+{{ end }}

@@ -1,0 +1,23 @@
+<!--
+  logo.svg — herdr-plus brand mark
+  Created on 2026-06-09. Copyright © 2026 Cloudmanic Labs, LLC.
+  A squircle badge in the Tokyo Night Light blue→indigo gradient with a white
+  "+" — the "plus" is the whole idea: extensions layered on top of herdr.
+-->
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="herdr plus">
+  <defs>
+    <linearGradient id="hp-grad" x1="8" y1="6" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4f93f0"/>
+      <stop offset="0.55" stop-color="#2e7de9"/>
+      <stop offset="1" stop-color="#2a4ba6"/>
+    </linearGradient>
+    <linearGradient id="hp-sheen" x1="32" y1="4" x2="32" y2="34" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="3" y="3" width="58" height="58" rx="16" fill="url(#hp-grad)"/>
+  <rect x="3" y="3" width="58" height="58" rx="16" fill="url(#hp-sheen)"/>
+  <rect x="3.5" y="3.5" width="57" height="57" rx="15.5" stroke="#ffffff" stroke-opacity="0.18"/>
+  <path d="M32 18.5V45.5M18.5 32H45.5" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
+</svg>

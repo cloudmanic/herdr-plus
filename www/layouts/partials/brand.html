@@ -1,0 +1,8 @@
+{{- /* brand.html — logo badge + "herdr plus" wordmark. Param: .size ("sm"|"md") */ -}}
+{{- $size := .size | default "md" -}}
+{{- $badge := cond (eq $size "sm") "h-7 w-7" "h-8 w-8" -}}
+{{- $text := cond (eq $size "sm") "text-lg" "text-xl" -}}
+<span class="inline-flex items-center gap-2.5">
+  <img src="{{ "images/logo.svg" | relURL }}" alt="" width="32" height="32" class="{{ $badge }} rounded-[9px]">
+  <span class="font-mono {{ $text }} font-semibold tracking-tight" style="color:var(--color-ink)">herdr<span style="color:var(--color-accent-ink)"> plus</span></span>
+</span>

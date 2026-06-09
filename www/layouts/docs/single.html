@@ -1,0 +1,75 @@
+{{ define "main" }}
+{{- $pages := (.Site.GetPage "/docs").RegularPages.ByWeight -}}
+{{- $idx := -1 -}}
+{{- range $i, $pg := $pages }}{{ if eq $pg.RelPermalink $.RelPermalink }}{{ $idx = $i }}{{ end }}{{ end -}}
+{{- $prev := cond (gt $idx 0) (index $pages (sub $idx 1)) nil -}}
+{{- $next := cond (and (ge $idx 0) (lt $idx (sub (len $pages) 1))) (index $pages (add $idx 1)) nil -}}
+
+<div class="container-x py-10">
+  <div class="grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_13rem]">
+
+    <!-- left: section nav (sticky on desktop) -->
+    <aside class="hidden lg:block">
+      <div class="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2">
+        {{ partial "docs-sidebar.html" . }}
+      </div>
+    </aside>
+
+    <!-- center: article -->
+    <article class="min-w-0">
+      <!-- mobile docs nav -->
+      <details class="card mb-6 p-3 lg:hidden">
+        <summary class="cursor-pointer list-none font-semibold">{{ partial "icon.html" (dict "name" "book" "class" "mr-1.5 inline h-4 w-4") }} Documentation menu</summary>
+        <div class="mt-3">{{ partial "docs-sidebar.html" . }}</div>
+      </details>
+
+      <nav class="mb-4 flex items-center gap-2 text-sm" style="color:var(--color-faint)" aria-label="Breadcrumb">
+        <a href="{{ "docs/" | relURL }}" class="hover:underline underline-offset-4">Docs</a>
+        <span>/</span>
+        <span style="color:var(--color-muted)">{{ .Title }}</span>
+      </nav>
+
+      <header class="mb-8">
+        <h1 class="text-balance text-4xl">{{ .Title }}</h1>
+        {{ with .Description }}<p class="mt-3 text-pretty text-lg" style="color:var(--color-muted)">{{ . }}</p>{{ end }}
+      </header>
+
+      <div class="prose">
+        {{ .Content }}
+      </div>
+
+      <!-- prev / next -->
+      <nav class="mt-14 grid gap-4 border-t pt-8 sm:grid-cols-2" style="border-color:var(--color-line)">
+        {{ with $prev }}
+        <a href="{{ .RelPermalink }}" class="card card-hover p-4">
+          <span class="text-xs" style="color:var(--color-faint)">← Previous</span>
+          <p class="mt-1 font-semibold" style="color:var(--color-accent-ink)">{{ .Title }}</p>
+        </a>
+        {{ else }}<span></span>{{ end }}
+        {{ with $next }}
+        <a href="{{ .RelPermalink }}" class="card card-hover p-4 sm:text-right">
+          <span class="text-xs" style="color:var(--color-faint)">Next →</span>
+          <p class="mt-1 font-semibold" style="color:var(--color-accent-ink)">{{ .Title }}</p>
+        </a>
+        {{ end }}
+      </nav>
+
+      <p class="mt-8 text-sm" style="color:var(--color-faint)">
+        Spot something off?
+        <a href="{{ .Site.Params.githubUrl }}/edit/main/www/content/{{ .File.Path }}" target="_blank" rel="noopener" class="link-accent">Edit this page on GitHub ↗</a>
+      </p>
+    </article>
+
+    <!-- right: on-this-page TOC (sticky, xl only) -->
+    <aside class="hidden xl:block">
+      {{ if gt (len .TableOfContents) 60 }}
+      <div class="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
+        <p class="doc-group-title mb-2">On this page</p>
+        <div class="toc">{{ .TableOfContents }}</div>
+      </div>
+      {{ end }}
+    </aside>
+
+  </div>
+</div>
+{{ end }}

@@ -1,0 +1,44 @@
+{{- /* nav.html — sticky top navigation with blur, theme toggle, mobile menu. */ -}}
+{{- $home := .Site.Home.RelPermalink -}}
+{{- $gh := .Site.Params.githubUrl -}}
+<header class="sticky top-0 z-50 border-b" style="border-color:var(--color-line); background:color-mix(in srgb, var(--color-bg) 82%, transparent); backdrop-filter:saturate(140%) blur(12px);">
+  <nav class="container-x flex h-16 items-center justify-between gap-4" aria-label="Primary">
+    <a href="{{ $home }}" class="shrink-0" aria-label="herdr plus — home">
+      {{ partial "brand.html" (dict "size" "md") }}
+    </a>
+
+    <div class="hidden items-center gap-1 md:flex">
+      <a href="{{ "docs/" | relURL }}" class="btn btn-ghost btn-sm">Docs</a>
+      <a href="{{ "docs/quick-start/" | relURL }}" class="btn btn-ghost btn-sm">Quick start</a>
+      <a href="{{ "docs/examples/" | relURL }}" class="btn btn-ghost btn-sm">Examples</a>
+      <a href="{{ "llms.txt" | relURL }}" class="btn btn-ghost btn-sm" title="LLM-readable docs">llms.txt</a>
+    </div>
+
+    <div class="flex items-center gap-1.5">
+      <button type="button" class="btn btn-ghost btn-sm !px-2" data-theme-toggle aria-label="Toggle dark mode">
+        <span class="hp-sun">{{ partial "icon.html" (dict "name" "sun" "class" "h-[18px] w-[18px]") }}</span>
+        <span class="hp-moon hidden">{{ partial "icon.html" (dict "name" "moon" "class" "h-[18px] w-[18px]") }}</span>
+      </button>
+      <a href="{{ $gh }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm !px-2" aria-label="herdr-plus on GitHub">
+        {{ partial "icon.html" (dict "name" "github" "class" "h-[18px] w-[18px]") }}
+      </a>
+      <a href="{{ $home }}#install" class="btn btn-primary btn-sm hidden sm:inline-flex">Install</a>
+      <button type="button" class="btn btn-ghost btn-sm !px-2 md:hidden" data-nav-toggle aria-label="Open menu" aria-expanded="false">
+        {{ partial "icon.html" (dict "name" "menu" "class" "h-5 w-5") }}
+      </button>
+    </div>
+  </nav>
+
+  <!-- mobile menu -->
+  <div class="hidden border-t md:!hidden" style="border-color:var(--color-line)" data-mobile-menu>
+    <div class="container-x flex flex-col gap-1 py-3">
+      <a href="{{ "docs/" | relURL }}" class="doc-link">Docs</a>
+      <a href="{{ "docs/quick-start/" | relURL }}" class="doc-link">Quick start</a>
+      <a href="{{ "docs/examples/" | relURL }}" class="doc-link">Examples</a>
+      <a href="{{ "docs/configuration/" | relURL }}" class="doc-link">Configuration</a>
+      <a href="{{ "llms.txt" | relURL }}" class="doc-link">llms.txt</a>
+      <a href="{{ $gh }}" target="_blank" rel="noopener" class="doc-link">GitHub ↗</a>
+      <a href="{{ $home }}#install" class="btn btn-primary btn-sm mt-2 w-full">Install herdr-plus</a>
+    </div>
+  </div>
+</header>

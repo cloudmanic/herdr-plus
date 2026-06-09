@@ -1,0 +1,374 @@
+/*
+ * app.css — herdr-plus design system
+ * Created on 2026-06-09. Copyright © 2026 Cloudmanic Labs, LLC.
+ *
+ * Tailwind v4 (standalone binary, no Node) + a small set of semantic design
+ * tokens sampled from herdr.dev's Tokyo Night palette so this site reads as a
+ * natural sibling of herdr. Colors are driven entirely by CSS variables, so
+ * the [data-theme="dark"] block below re-skins the whole site by overriding
+ * tokens — every `bg-bg`, `text-ink`, `border-line` utility follows along.
+ *
+ * Build:  tailwindcss -i assets/css/app.css -o static/css/app.css --minify
+ */
+
+@import "tailwindcss" source(none);
+
+/* Only scan our own templates + content — never the generated public/ dir. */
+@source "../../layouts/**/*.html";
+@source "../../layouts/**/*.txt";
+@source "../../content/**/*.{html,md}";
+
+/* ------------------------------------------------------------------ tokens */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --radius-sm: 4px;
+  --radius:    8px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* Semantic colors — LIGHT theme defaults (Tokyo Night Light). */
+  --color-bg:          #e7e8ed;  /* page background */
+  --color-surface:     #ffffff;  /* cards / raised panels */
+  --color-surface-2:   #dcdde4;  /* insets / subtle fills */
+  --color-ink:         #1f2f66;  /* primary text */
+  --color-ink-soft:    #3760bf;  /* secondary headings / paths */
+  --color-muted:       #66709c;  /* muted body / captions */
+  --color-faint:       #8a90b3;  /* faintest text */
+  --color-line:        #d3d6e2;  /* hairline borders */
+  --color-line-strong: #b6bbd1;  /* stronger borders */
+
+  --color-accent:      #2e7de9;  /* primary brand blue */
+  --color-accent-ink:  #1b5fc4;  /* accent text on light bg (AA) */
+  --color-accent-soft: #dceafb;  /* accent tint fills */
+  --color-green:       #587539;
+  --color-green-soft:  #dcead0;
+  --color-yellow:      #8c6c3e;
+  --color-red:         #d3315f;
+  --color-purple:      #8a4ff0;
+
+  /* Terminal mockups — herdr.dev uses a *light* terminal; we match it. */
+  --color-term-bg:     #e3e4ea;
+  --color-term-panel:  #d8d9e0;
+  --color-term-line:   #c4c8da;
+
+  /* "Spotlight" panels (the dark hero CTA cards). Stays a dark navy panel in
+     BOTH themes — referencing --color-ink here would invert it to light. */
+  --color-spotlight:     #1f2f66;
+  --color-spotlight-ink: #eef1f8;
+
+  --shadow-card: 0 1px 2px rgba(31,47,102,.04), 0 8px 24px -12px rgba(31,47,102,.18);
+  --shadow-lift: 0 2px 4px rgba(31,47,102,.06), 0 20px 48px -20px rgba(31,47,102,.30);
+}
+
+/* --------------------------------------------------- dark theme overrides */
+/* Explicit toggle wins; otherwise follow the OS unless the user forced light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg:          #1a1b26;
+    --color-surface:     #20212e;
+    --color-surface-2:   #16161e;
+    --color-ink:         #c6cdf2;
+    --color-ink-soft:    #9eb3f0;
+    --color-muted:       #828bb8;
+    --color-faint:       #565f89;
+    --color-line:        #2c2e40;
+    --color-line-strong: #3b3e54;
+
+    --color-accent:      #7aa2f7;
+    --color-accent-ink:  #a9c2ff;
+    --color-accent-soft: #243049;
+    --color-green:       #9ece6a;
+    --color-green-soft:  #25332a;
+    --color-yellow:      #e0af68;
+    --color-red:         #f7768e;
+    --color-purple:      #bb9af7;
+
+    --color-term-bg:     #16161e;
+    --color-term-panel:  #1a1b26;
+    --color-term-line:   #2c2e40;
+
+    --color-spotlight:     #222a4d;
+    --color-spotlight-ink: #dde3f5;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,.30), 0 10px 30px -14px rgba(0,0,0,.6);
+    --shadow-lift: 0 2px 6px rgba(0,0,0,.35), 0 24px 60px -22px rgba(0,0,0,.7);
+  }
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg:          #1a1b26;
+  --color-surface:     #20212e;
+  --color-surface-2:   #16161e;
+  --color-ink:         #c6cdf2;
+  --color-ink-soft:    #9eb3f0;
+  --color-muted:       #828bb8;
+  --color-faint:       #565f89;
+  --color-line:        #2c2e40;
+  --color-line-strong: #3b3e54;
+
+  --color-accent:      #7aa2f7;
+  --color-accent-ink:  #a9c2ff;
+  --color-accent-soft: #243049;
+  --color-green:       #9ece6a;
+  --color-green-soft:  #25332a;
+  --color-yellow:      #e0af68;
+  --color-red:         #f7768e;
+  --color-purple:      #bb9af7;
+
+  --color-term-bg:     #16161e;
+  --color-term-panel:  #1a1b26;
+  --color-term-line:   #2c2e40;
+
+  --color-spotlight:     #222a4d;
+  --color-spotlight-ink: #dde3f5;
+
+  --shadow-card: 0 1px 2px rgba(0,0,0,.30), 0 10px 30px -14px rgba(0,0,0,.6);
+  --shadow-lift: 0 2px 6px rgba(0,0,0,.35), 0 24px 60px -22px rgba(0,0,0,.7);
+}
+
+/* --------------------------------------------------------------- base layer */
+@layer base {
+  html {
+    color-scheme: light;
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;       /* sticky nav offset for #anchors */
+    -webkit-text-size-adjust: 100%;
+  }
+  [data-theme="dark"] { color-scheme: dark; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02","cv03","cv04","cv11";
+    line-height: 1.6;
+    text-rendering: optimizeLegibility;
+  }
+  /* Mono, slightly tightened display headings — the herdr-native signature. */
+  h1, h2, h3 { font-family: var(--font-mono); font-weight: 600; letter-spacing: -0.02em; color: var(--color-ink); line-height: 1.1; }
+  h4, h5, h6 { font-weight: 600; color: var(--color-ink); }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: color-mix(in srgb, var(--color-accent) 26%, transparent); }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 3px; }
+  hr { border-color: var(--color-line); }
+
+  /* Tasteful scrollbar (WebKit) for the dark sections + docs. */
+  * { scrollbar-color: var(--color-line-strong) transparent; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--color-line-strong); border-radius: 8px; border: 2px solid var(--color-bg); }
+}
+
+/* --------------------------------------------------------- component layer */
+@layer components {
+  /* Page width + horizontal gutters. */
+  .container-x { width: 100%; max-width: 76rem; margin-inline: auto; padding-inline: 1.25rem; }
+  @media (min-width: 768px) { .container-x { padding-inline: 2rem; } }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: .5rem;
+    font-family: var(--font-mono); font-size: .75rem; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent-ink);
+  }
+
+  /* ---- buttons -------------------------------------------------------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+    font-weight: 600; font-size: .95rem; line-height: 1;
+    padding: .7rem 1.15rem; border-radius: var(--radius);
+    border: 1px solid transparent; cursor: pointer;
+    transition: transform .15s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease, color .2s ease;
+    white-space: nowrap;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--color-accent); color: #fff; box-shadow: 0 1px 0 rgba(255,255,255,.2) inset, var(--shadow-card); }
+  .btn-primary:hover { background: color-mix(in srgb, var(--color-accent) 90%, #000); box-shadow: var(--shadow-lift); transform: translateY(-1px); }
+  .btn-secondary { background: var(--color-surface); color: var(--color-ink); border-color: var(--color-line-strong); }
+  .btn-secondary:hover { border-color: var(--color-accent); color: var(--color-accent-ink); transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--color-ink); }
+  .btn-ghost:hover { background: color-mix(in srgb, var(--color-ink) 7%, transparent); }
+  .btn-sm { padding: .45rem .8rem; font-size: .85rem; }
+
+  /* ---- pills / chips / kbd ------------------------------------------- */
+  .pill {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .3rem .7rem; border-radius: 999px; font-size: .8rem; font-weight: 600;
+    background: var(--color-surface); border: 1px solid var(--color-line); color: var(--color-muted);
+  }
+  .kbd {
+    font-family: var(--font-mono); font-size: .8em; font-weight: 600;
+    padding: .15em .5em; border-radius: 6px; color: var(--color-ink);
+    background: var(--color-surface); border: 1px solid var(--color-line-strong);
+    box-shadow: 0 1px 0 var(--color-line-strong); white-space: nowrap;
+  }
+
+  /* ---- cards ---------------------------------------------------------- */
+  .card {
+    background: var(--color-surface); border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+  }
+  .card-hover { transition: transform .2s ease, box-shadow .25s ease, border-color .2s ease; }
+  .card-hover:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); border-color: var(--color-line-strong); }
+
+  /* ---- terminal mockup (light, herdr-style) -------------------------- */
+  .terminal {
+    background: var(--color-term-bg); border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lift);
+    font-family: var(--font-mono); font-size: .82rem; line-height: 1.65;
+  }
+  .terminal-bar {
+    display: flex; align-items: center; gap: .5rem; padding: .6rem .85rem;
+    background: var(--color-term-panel); border-bottom: 1px solid var(--color-term-line);
+  }
+  .terminal-dot { width: 11px; height: 11px; border-radius: 999px; }
+  .terminal-title { margin-left: .5rem; font-size: .72rem; color: var(--color-muted); font-weight: 600; }
+  .terminal-body { padding: 1rem 1.1rem; color: var(--color-ink); overflow-x: auto; }
+  /* terminal syntax helpers */
+  .t-prompt  { color: var(--color-accent); }
+  .t-cmd     { color: var(--color-green); }
+  .t-path    { color: var(--color-ink-soft); }
+  .t-str     { color: var(--color-yellow); }
+  .t-dim     { color: var(--color-muted); }
+  .t-out     { color: var(--color-ink); opacity: .92; }
+  .t-key     { color: var(--color-purple); }
+
+  /* a faux herdr tab strip used inside mockups */
+  .term-tabs { display: flex; gap: .25rem; padding: .4rem .6rem 0; background: var(--color-term-panel); }
+  .term-tab { font-size: .72rem; padding: .3rem .65rem; border-radius: 7px 7px 0 0; color: var(--color-muted); border: 1px solid transparent; border-bottom: none; }
+  .term-tab.is-active { background: var(--color-term-bg); color: var(--color-ink); border-color: var(--color-term-line); }
+
+  /* ---- install / copy box -------------------------------------------- */
+  .codebox {
+    display: flex; align-items: center; gap: .6rem;
+    background: var(--color-surface); border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius); padding: .7rem .8rem; box-shadow: var(--shadow-card);
+    font-family: var(--font-mono); font-size: .9rem; overflow: hidden;
+  }
+  .codebox .prompt { color: var(--color-accent); user-select: none; }
+  .codebox code { color: var(--color-ink); white-space: nowrap; overflow-x: auto; flex: 1; scrollbar-width: none; }
+  .codebox code::-webkit-scrollbar { display: none; }
+  .copy-btn {
+    display: inline-flex; align-items: center; gap: .35rem; flex: none;
+    font-family: var(--font-sans); font-size: .78rem; font-weight: 600;
+    padding: .4rem .65rem; border-radius: 7px; cursor: pointer;
+    color: var(--color-muted); background: var(--color-surface-2);
+    border: 1px solid var(--color-line); transition: all .15s ease;
+  }
+  .copy-btn:hover { color: var(--color-accent-ink); border-color: var(--color-accent); }
+  .copy-btn.copied { color: var(--color-green); border-color: var(--color-green); }
+
+  .seg {
+    display: inline-flex; padding: .25rem; gap: .15rem; border-radius: var(--radius);
+    background: var(--color-surface-2); border: 1px solid var(--color-line);
+  }
+  .seg-btn {
+    font-size: .82rem; font-weight: 600; padding: .35rem .8rem; border-radius: 6px;
+    color: var(--color-muted); cursor: pointer; border: none; background: transparent;
+    transition: all .15s ease; font-family: var(--font-sans);
+  }
+  .seg-btn[aria-selected="true"] { background: var(--color-accent); color: #fff; }
+
+  /* ---- feature / step blocks ----------------------------------------- */
+  .icon-tile {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.75rem; height: 2.75rem; border-radius: 11px;
+    background: var(--color-accent-soft); color: var(--color-accent-ink);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem; flex: none; border-radius: 999px;
+    font-family: var(--font-mono); font-weight: 700; font-size: .9rem;
+    background: var(--color-spotlight); color: var(--color-spotlight-ink);
+  }
+
+  /* ---- docs prose ----------------------------------------------------- */
+  .prose { color: var(--color-ink); font-size: 1rem; line-height: 1.72; }
+  .prose > * + * { margin-top: 1.15rem; }
+  .prose h2 { font-size: 1.6rem; margin-top: 2.6rem; padding-bottom: .4rem; border-bottom: 1px solid var(--color-line); scroll-margin-top: 6rem; }
+  .prose h3 { font-size: 1.2rem; margin-top: 2rem; scroll-margin-top: 6rem; }
+  .prose h4 { font-size: 1rem; margin-top: 1.5rem; }
+  .prose p, .prose ul, .prose ol { color: var(--color-ink); }
+  .prose a { color: var(--color-accent-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--color-accent) 40%, transparent); }
+  .prose a:hover { text-decoration-color: var(--color-accent); }
+  .prose strong { color: var(--color-ink); font-weight: 700; }
+  .prose ul { list-style: disc; padding-left: 1.4rem; }
+  .prose ol { list-style: decimal; padding-left: 1.4rem; }
+  .prose li + li { margin-top: .4rem; }
+  .prose li::marker { color: var(--color-faint); }
+  /* inline code */
+  .prose :not(pre) > code {
+    font-family: var(--font-mono); font-size: .86em; padding: .15em .4em; border-radius: 5px;
+    background: var(--color-accent-soft); color: var(--color-accent-ink);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
+  }
+  /* fenced code blocks (Chroma) */
+  .prose pre {
+    font-family: var(--font-mono); font-size: .85rem; line-height: 1.6;
+    background: var(--color-term-bg) !important; color: var(--color-ink);
+    border: 1px solid var(--color-line-strong); border-radius: var(--radius);
+    padding: 1rem 1.1rem; overflow-x: auto;
+  }
+  .prose pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+  .prose table { width: 100%; border-collapse: collapse; font-size: .9rem; display: block; overflow-x: auto; }
+  .prose th, .prose td { text-align: left; padding: .55rem .7rem; border: 1px solid var(--color-line); vertical-align: top; }
+  .prose thead th { background: var(--color-surface-2); font-weight: 700; }
+  .prose tbody tr:nth-child(even) { background: color-mix(in srgb, var(--color-surface-2) 45%, transparent); }
+  .prose img { border-radius: var(--radius); border: 1px solid var(--color-line); }
+
+  /* callouts from blockquotes: > **Note:** ... */
+  .prose blockquote {
+    border-left: 3px solid var(--color-accent); background: var(--color-accent-soft);
+    padding: .85rem 1.1rem; border-radius: 0 var(--radius) var(--radius) 0; color: var(--color-ink);
+  }
+  .prose blockquote p { margin: 0; }
+  .prose blockquote strong:first-child { color: var(--color-accent-ink); }
+
+  /* ---- docs sidebar / TOC -------------------------------------------- */
+  .doc-link {
+    display: block; padding: .4rem .7rem; border-radius: 7px; font-size: .9rem;
+    color: var(--color-muted); border-left: 2px solid transparent; transition: all .12s ease;
+  }
+  .doc-link:hover { color: var(--color-ink); background: color-mix(in srgb, var(--color-ink) 5%, transparent); }
+  .doc-link.is-active { color: var(--color-accent-ink); background: var(--color-accent-soft); font-weight: 600; }
+  .doc-group-title { font-family: var(--font-mono); font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--color-faint); }
+  .toc a { display: block; padding: .25rem 0; font-size: .85rem; color: var(--color-muted); border-left: 2px solid var(--color-line); padding-left: .8rem; transition: all .12s ease; }
+  .toc a:hover { color: var(--color-ink); border-color: var(--color-accent); }
+  .toc ul ul a { padding-left: 1.6rem; }
+
+  /* ---- misc ----------------------------------------------------------- */
+  .link-accent { color: var(--color-accent-ink); font-weight: 600; }
+  .link-accent:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .divider { height: 1px; background: var(--color-line); }
+}
+
+/* --------------------------------------------------------- utility layer */
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-pretty  { text-wrap: pretty; }
+
+  /* radial brand glow behind the hero */
+  .glow-accent {
+    background: radial-gradient(60% 60% at 50% 0%, color-mix(in srgb, var(--color-accent) 30%, transparent), transparent 70%);
+  }
+  /* faint dotted grid background */
+  .grid-bg {
+    background-image: radial-gradient(color-mix(in srgb, var(--color-ink) 12%, transparent) 1px, transparent 1px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(70% 70% at 50% 30%, #000, transparent 75%);
+            mask-image: radial-gradient(70% 70% at 50% 30%, #000, transparent 75%);
+  }
+  /* subtle entrance */
+  @keyframes hp-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .rise { animation: hp-rise .6s cubic-bezier(.22,.61,.36,1) both; }
+
+  /* blinking terminal cursor */
+  @keyframes hp-blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+  .cursor::after { content: "▋"; color: var(--color-accent); animation: hp-blink 1.1s steps(1) infinite; margin-left: 1px; }
+}

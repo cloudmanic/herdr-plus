@@ -1,0 +1,27 @@
+{{- /* docs-sidebar.html — grouped, weight-ordered docs navigation.
+        Receives the current page as `.` so it can highlight the active link.
+        Pages are bucketed by weight so new docs slot in automatically. */ -}}
+{{- $cur := .RelPermalink -}}
+{{- $section := .Site.GetPage "/docs" -}}
+{{- $pages := $section.RegularPages.ByWeight -}}
+{{- $groups := slice
+      (dict "title" "Getting started" "min" 1  "max" 39)
+      (dict "title" "Concepts"        "min" 40 "max" 69)
+      (dict "title" "Reference"       "min" 70 "max" 109)
+      (dict "title" "Help"            "min" 110 "max" 9999) -}}
+<nav aria-label="Documentation">
+  <a href="{{ $section.RelPermalink }}" class="doc-link {{ if eq $cur $section.RelPermalink }}is-active{{ end }}">Overview</a>
+  {{ range $groups }}
+    {{ $title := .title }}
+    {{ $g := where (where $pages "Weight" ">=" .min) "Weight" "<=" .max }}
+    {{ with $g }}
+      <p class="doc-group-title mt-5 mb-1.5 px-3">{{ $title }}</p>
+      {{ range . }}
+        <a href="{{ .RelPermalink }}" class="doc-link {{ if eq $cur .RelPermalink }}is-active{{ end }}">{{ .Title }}</a>
+      {{ end }}
+    {{ end }}
+  {{ end }}
+  <div class="divider my-5"></div>
+  <a href="{{ .Site.Params.githubUrl }}" target="_blank" rel="noopener" class="doc-link">GitHub ↗</a>
+  <a href="{{ "llms.txt" | relURL }}" class="doc-link">llms.txt</a>
+</nav>
