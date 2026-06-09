@@ -1,0 +1,114 @@
+<!doctype html>
+<!--
+  baseof.html — base template for every page.
+  Created on 2026-06-09. Copyright © 2026 Cloudmanic Labs, LLC.
+-->
+<html lang="en-US" class="scroll-smooth">
+<head>
+  {{- /* No-FOUC theme: dark is the default; light only when the user picks it. */ -}}
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("hp-theme");
+        document.documentElement.dataset.theme = (t === "light") ? "light" : "dark";
+      } catch (e) {
+        document.documentElement.dataset.theme = "dark";
+      }
+    })();
+  </script>
+  {{ partial "head.html" . }}
+  {{ if .IsHome }}{{ partial "schema.html" . }}{{ end }}
+</head>
+<body class="min-h-screen antialiased">
+  {{ partial "nav.html" . }}
+  <main id="main">
+    {{ block "main" . }}{{ end }}
+  </main>
+  {{ partial "footer.html" . }}
+
+  {{- /* Tiny vanilla JS: theme toggle, copy buttons, install tabs, mobile menu, TOC spy. */ -}}
+  <script>
+  (function () {
+    var root = document.documentElement;
+
+    /* ---- theme toggle ---- */
+    function systemDark() { return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches; }
+    function isDark() { var t = root.dataset.theme; return t ? t === "dark" : systemDark(); }
+    function syncIcons() {
+      var dark = isDark();
+      document.querySelectorAll(".hp-sun").forEach(function (e) { e.classList.toggle("hidden", dark); });
+      document.querySelectorAll(".hp-moon").forEach(function (e) { e.classList.toggle("hidden", !dark); });
+    }
+    document.querySelectorAll("[data-theme-toggle]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var next = isDark() ? "light" : "dark";
+        root.dataset.theme = next;
+        try { localStorage.setItem("hp-theme", next); } catch (e) {}
+        syncIcons();
+      });
+    });
+    syncIcons();
+
+    /* ---- copy-to-clipboard buttons ---- */
+    document.querySelectorAll("[data-copy]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var text = btn.getAttribute("data-copy");
+        var done = function () {
+          btn.classList.add("copied");
+          var label = btn.querySelector("[data-copy-label]");
+          var prev = label ? label.textContent : null;
+          if (label) label.textContent = "Copied";
+          setTimeout(function () { btn.classList.remove("copied"); if (label) label.textContent = prev; }, 1600);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta);
+          ta.select(); try { document.execCommand("copy"); } catch (e) {} document.body.removeChild(ta); done();
+        }
+      });
+    });
+
+    /* ---- segmented install tabs ---- */
+    document.querySelectorAll("[data-tabs]").forEach(function (group) {
+      var btns = group.querySelectorAll("[data-tab]");
+      var panels = document.querySelectorAll("[data-tab-panel='" + group.getAttribute("data-tabs") + "']");
+      btns.forEach(function (b) {
+        b.addEventListener("click", function () {
+          var key = b.getAttribute("data-tab");
+          btns.forEach(function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
+          panels.forEach(function (p) { p.classList.toggle("hidden", p.getAttribute("data-tab-key") !== key); });
+        });
+      });
+    });
+
+    /* ---- mobile menu ---- */
+    var toggle = document.querySelector("[data-nav-toggle]");
+    var menu = document.querySelector("[data-mobile-menu]");
+    if (toggle && menu) {
+      toggle.addEventListener("click", function () {
+        var open = menu.classList.toggle("hidden") === false;
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    }
+
+    /* ---- TOC scroll-spy (docs) ---- */
+    var tocLinks = document.querySelectorAll(".toc a[href^='#']");
+    if (tocLinks.length && "IntersectionObserver" in window) {
+      var map = {};
+      tocLinks.forEach(function (a) { var id = a.getAttribute("href").slice(1); if (id) map[id] = a; });
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            tocLinks.forEach(function (a) { a.style.color = ""; a.style.borderColor = ""; });
+            var a = map[en.target.id];
+            if (a) { a.style.color = "var(--color-accent-ink)"; a.style.borderColor = "var(--color-accent)"; }
+          }
+        });
+      }, { rootMargin: "-72px 0px -70% 0px" });
+      document.querySelectorAll(".prose h2[id], .prose h3[id]").forEach(function (h) { obs.observe(h); });
+    }
+  })();
+  </script>
+</body>
+</html>

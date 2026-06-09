@@ -1,0 +1,12 @@
+{{- /* codebox.html — one copyable shell command line.
+        Call: {{ partial "codebox.html" (dict "cmd" "brew install ..." "prompt" "$") }} */ -}}
+{{- $cmd := .cmd -}}
+{{- $prompt := .prompt | default "$" -}}
+<div class="codebox">
+  <span class="prompt">{{ $prompt }}</span>
+  <code>{{ $cmd }}</code>
+  <button type="button" class="copy-btn" data-copy="{{ $cmd }}" aria-label="Copy command">
+    {{ partial "icon.html" (dict "name" "copy" "class" "h-3.5 w-3.5") }}
+    <span data-copy-label>Copy</span>
+  </button>
+</div>

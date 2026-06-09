@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# LLM-readable documentation
+# {{ "llms.txt" | absURL }}
+# {{ "llms-full.txt" | absURL }}
+
+Sitemap: {{ "sitemap.xml" | absURL }}
