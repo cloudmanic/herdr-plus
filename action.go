@@ -33,10 +33,21 @@ const (
 // is used as the value too. Description, when set, is shown as dim text next to
 // the label — useful when the label alone isn't self-explanatory, or to keep a
 // long value out of the list.
+//
+// An option with no Label is a non-selectable separator used to visually group
+// the choices: with a Heading it renders as a dim group title (preceded by a
+// blank line); without one it renders as a plain blank spacer.
 type Option struct {
 	Label       string `toml:"label"`
 	Value       string `toml:"value"`
 	Description string `toml:"description"`
+	Heading     string `toml:"heading"`
+}
+
+// isSeparator reports whether the option is a non-selectable spacer/heading
+// rather than a real choice. An option needs a label to be selectable.
+func (o Option) isSeparator() bool {
+	return o.Label == ""
 }
 
 // resolvedValue returns the value to hand to the command for this option.
@@ -95,8 +106,14 @@ func (a Action) validate() error {
 	case TypeCommand, TypeForm:
 		// nothing extra to check
 	case TypeSelect:
-		if len(a.Options) == 0 {
-			return fmt.Errorf("action %q (%s): select actions need at least one option", a.Name, a.source)
+		selectable := 0
+		for _, o := range a.Options {
+			if !o.isSeparator() {
+				selectable++
+			}
+		}
+		if selectable == 0 {
+			return fmt.Errorf("action %q (%s): select actions need at least one selectable option (one with a label)", a.Name, a.source)
 		}
 	default:
 		return fmt.Errorf("action %q (%s): unknown type %q (want command, select, or form)", a.Name, a.source, a.Type)

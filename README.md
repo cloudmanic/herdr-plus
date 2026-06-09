@@ -85,6 +85,26 @@ value = "options-cafe"
 description = "cloudmanic/options-cafe"
 ```
 
+To visually group options, add a separator: an option with **no `label`**. Give
+it a `heading` to show a dim group title, or leave it blank for a plain spacer.
+Separators are not selectable, are skipped when navigating, and disappear while
+you filter.
+
+```toml
+[[options]]
+heading = "Cascade"   # a labeled group header
+
+[[options]]
+label = "Options Cafe"
+value = "cascade https://github.com/users/cloudmanic/projects/8"
+
+[[options]]               # a blank spacer (no label, no heading)
+
+[[options]]
+label = "Options Cafe (Rager)"
+value = "rager https://github.com/users/cloudmanic/projects/8"
+```
+
 ### Type: `form`
 
 Shows a text field. What you type becomes `{{.Value}}`. The `[form]` table is

@@ -34,6 +34,7 @@ var (
 	matchStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#F2A900")).Bold(true)
 	barStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#A78BFA")).Bold(true)
 	footerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#4B5563"))
+	headingStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#8B5CF6")).Bold(true)
 )
 
 // stage is which screen the picker is currently showing.
@@ -78,7 +79,7 @@ type pickerModel struct {
 func newPickerModel(mode Mode, ctx RunContext, actions []Action) pickerModel {
 	items := make([]listItem, len(actions))
 	for i, a := range actions {
-		items[i] = listItem{name: a.Name, desc: a.Description}
+		items[i] = listItem{name: a.Name, desc: a.Description, selectable: true, ref: i}
 	}
 	return pickerModel{
 		mode:       mode,
@@ -267,13 +268,20 @@ func (m pickerModel) View() string {
 	return b.String()
 }
 
-// optionItems turns a select action's options into list rows. A row shows its
-// label plus the option's optional description; the value is never shown, so
-// encoding data into the value (e.g. "host url") does not clutter the list.
+// optionItems turns a select action's options into list rows. A selectable row
+// shows its label plus the option's optional description (the value is never
+// shown, so encoding data into the value — e.g. "host url" — does not clutter
+// the list). A separator option becomes a non-selectable heading/spacer row.
+// ref carries each row's index into the original options slice so the picker can
+// map the selected row back to its option.
 func optionItems(options []Option) []listItem {
-	items := make([]listItem, len(options))
+	items := make([]listItem, 0, len(options))
 	for i, o := range options {
-		items[i] = listItem{name: o.Label, desc: o.Description}
+		if o.isSeparator() {
+			items = append(items, listItem{name: o.Heading})
+			continue
+		}
+		items = append(items, listItem{name: o.Label, desc: o.Description, selectable: true, ref: i})
 	}
 	return items
 }

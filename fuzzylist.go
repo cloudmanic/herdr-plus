@@ -15,25 +15,29 @@ import (
 	"github.com/sahilm/fuzzy"
 )
 
-// listItem is one row in a fuzzyList: a name (matched and highlighted) plus an
-// optional dimmer description.
+// listItem is one row in a fuzzyList. A selectable row shows a name (matched and
+// highlighted) plus an optional dimmer description, and carries ref — the
+// caller's identifier for the row (e.g. an index into its own slice). A row with
+// selectable=false is a non-selectable separator: with a name it renders as a
+// dim group heading, without one as a blank spacer. Either way it is skipped
+// during navigation and hidden while filtering.
 type listItem struct {
-	name string
-	desc string
+	name       string
+	desc       string
+	selectable bool
+	ref        int
 }
 
-// scoredItem is a listItem that survived the current query filter, carrying its
-// original index and the name-character positions that matched, for
-// highlighting.
+// scoredItem is a listItem that survived the current query filter, carrying the
+// name-character positions that matched, for highlighting.
 type scoredItem struct {
 	item    listItem
-	index   int
 	matched []int
 }
 
 // fuzzyList is a reusable fuzzy-filtered, keyboard-navigable list with a query
 // box. Both the action picker and the "select" option screen are fuzzyLists, so
-// the matching, navigation, and rendering live here once.
+// the matching, navigation, separators, and rendering live here once.
 type fuzzyList struct {
 	input    textinput.Model
 	items    []listItem
@@ -54,60 +58,109 @@ func newFuzzyList(placeholder string, items []listItem) fuzzyList {
 }
 
 // filter recomputes the visible rows from the current query. An empty query
-// shows every item in its natural order. Matching runs against name and
-// description together so a description fragment also narrows the list, while
-// only matches that land inside the name are highlighted.
+// shows every item — separators included — in its natural order. A non-empty
+// query fuzzy-matches only the selectable items (separators are dropped while
+// searching) against name and description together, while highlighting only the
+// matches that land inside the name.
 func (l *fuzzyList) filter() {
 	q := strings.TrimSpace(l.input.Value())
 	l.filtered = l.filtered[:0]
 
 	if q == "" {
-		for i, it := range l.items {
-			l.filtered = append(l.filtered, scoredItem{item: it, index: i})
+		for _, it := range l.items {
+			l.filtered = append(l.filtered, scoredItem{item: it})
 		}
-	} else {
-		haystacks := make([]string, len(l.items))
-		nameLens := make([]int, len(l.items))
-		for i, it := range l.items {
-			haystacks[i] = it.name + "  " + it.desc
-			nameLens[i] = len(it.name)
-		}
-		for _, mt := range fuzzy.Find(q, haystacks) {
-			var inName []int
-			for _, idx := range mt.MatchedIndexes {
-				if idx < nameLens[mt.Index] {
-					inName = append(inName, idx)
-				}
-			}
-			l.filtered = append(l.filtered, scoredItem{item: l.items[mt.Index], index: mt.Index, matched: inName})
-		}
+		l.clampCursor()
+		return
 	}
 
+	var sel []listItem
+	for _, it := range l.items {
+		if it.selectable {
+			sel = append(sel, it)
+		}
+	}
+	haystacks := make([]string, len(sel))
+	nameLens := make([]int, len(sel))
+	for i, it := range sel {
+		haystacks[i] = it.name + "  " + it.desc
+		nameLens[i] = len(it.name)
+	}
+	for _, mt := range fuzzy.Find(q, haystacks) {
+		var inName []int
+		for _, idx := range mt.MatchedIndexes {
+			if idx < nameLens[mt.Index] {
+				inName = append(inName, idx)
+			}
+		}
+		l.filtered = append(l.filtered, scoredItem{item: sel[mt.Index], matched: inName})
+	}
+
+	l.clampCursor()
+}
+
+// clampCursor keeps the cursor in range and parked on a selectable row, moving
+// to the nearest selectable row (searching down, then up) if it landed on a
+// separator.
+func (l *fuzzyList) clampCursor() {
+	if len(l.filtered) == 0 {
+		l.cursor = 0
+		return
+	}
 	if l.cursor >= len(l.filtered) {
-		l.cursor = max(0, len(l.filtered)-1)
+		l.cursor = len(l.filtered) - 1
+	}
+	if l.cursor < 0 {
+		l.cursor = 0
+	}
+	if l.filtered[l.cursor].item.selectable {
+		return
+	}
+	for i := l.cursor; i < len(l.filtered); i++ {
+		if l.filtered[i].item.selectable {
+			l.cursor = i
+			return
+		}
+	}
+	for i := l.cursor; i >= 0; i-- {
+		if l.filtered[i].item.selectable {
+			l.cursor = i
+			return
+		}
 	}
 }
 
-// moveUp and moveDown nudge the highlight, clamped to the visible rows.
+// moveUp and moveDown move the highlight to the previous/next selectable row,
+// skipping any separators in between.
 func (l *fuzzyList) moveUp() {
-	if l.cursor > 0 {
-		l.cursor--
+	for i := l.cursor - 1; i >= 0; i-- {
+		if l.filtered[i].item.selectable {
+			l.cursor = i
+			return
+		}
 	}
 }
 
 func (l *fuzzyList) moveDown() {
-	if l.cursor < len(l.filtered)-1 {
-		l.cursor++
+	for i := l.cursor + 1; i < len(l.filtered); i++ {
+		if l.filtered[i].item.selectable {
+			l.cursor = i
+			return
+		}
 	}
 }
 
-// selectedIndex returns the original items index of the highlighted row, or -1
-// when nothing matches the current query.
+// selectedIndex returns the ref of the highlighted selectable row, or -1 when
+// nothing is selectable (empty list, or all matches filtered away).
 func (l *fuzzyList) selectedIndex() int {
 	if len(l.filtered) == 0 {
 		return -1
 	}
-	return l.filtered[l.cursor].index
+	it := l.filtered[l.cursor].item
+	if !it.selectable {
+		return -1
+	}
+	return it.ref
 }
 
 // editQuery feeds a message to the query box and re-filters. Non-key messages
@@ -119,32 +172,55 @@ func (l *fuzzyList) editQuery(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
-// view renders the query line, the match count, and the result rows. emptyMsg
-// is shown when no row matches the query.
+// view renders the query line, the match count (selectable rows only), and the
+// result rows. Separators render as a blank line plus an optional dim heading;
+// emptyMsg is shown when no selectable row matches the query.
 func (l fuzzyList) view(emptyMsg string) string {
 	var b strings.Builder
+
+	matched, total := 0, 0
+	for _, it := range l.items {
+		if it.selectable {
+			total++
+		}
+	}
+	for _, s := range l.filtered {
+		if s.item.selectable {
+			matched++
+		}
+	}
 
 	b.WriteString(promptStyle.Render("❯ "))
 	b.WriteString(l.input.View())
 	b.WriteString("   ")
-	b.WriteString(countStyle.Render(fmt.Sprintf("%d/%d", len(l.filtered), len(l.items))))
+	b.WriteString(countStyle.Render(fmt.Sprintf("%d/%d", matched, total)))
 	b.WriteString("\n\n")
 
-	if len(l.filtered) == 0 {
+	if matched == 0 {
 		b.WriteString(descStyle.Render("  " + emptyMsg))
 		b.WriteString("\n")
 	}
 	for i, s := range l.filtered {
+		it := s.item
+		if !it.selectable {
+			// A blank line separates groups; a heading (if any) labels the group.
+			b.WriteString("\n")
+			if it.name != "" {
+				b.WriteString(headingStyle.Render(it.name))
+				b.WriteString("\n")
+			}
+			continue
+		}
 		selected := i == l.cursor
 		if selected {
 			b.WriteString(barStyle.Render("▌ "))
 		} else {
 			b.WriteString("  ")
 		}
-		b.WriteString(highlightName(s.item.name, s.matched, selected))
-		if s.item.desc != "" {
+		b.WriteString(highlightName(it.name, s.matched, selected))
+		if it.desc != "" {
 			b.WriteString("  ")
-			b.WriteString(descStyle.Render(s.item.desc))
+			b.WriteString(descStyle.Render(it.desc))
 		}
 		b.WriteString("\n")
 	}
