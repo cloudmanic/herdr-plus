@@ -98,30 +98,40 @@ func decodeRunContext(s string) (RunContext, error) {
 }
 
 // gatherContext collects everything herdr-plus knows about the invoking pane:
-// the local working directory (from the launcher's own process, which is the
-// most accurate source) plus the pane, tab, and workspace metadata herdr
-// reports over the socket. Any field herdr cannot supply is left empty — a
-// partial context is far better than refusing to launch.
+// the working directory plus the pane, tab, and workspace metadata herdr reports
+// over the socket. Any field herdr cannot supply is left empty — a partial
+// context is far better than refusing to launch.
 func gatherContext(client *herdrClient, paneID string) RunContext {
 	ctx := RunContext{PaneId: paneID}
 
-	// The launcher runs in the user's pane, so its own cwd is exactly the
-	// directory the action should run in.
-	if wd, err := os.Getwd(); err == nil {
-		ctx.WorkDir = wd
-	}
-
 	pane, err := client.paneGet(paneID)
 	if err != nil {
+		// Socket unavailable; the best we can do is our own working directory.
+		if wd, e := os.Getwd(); e == nil {
+			ctx.WorkDir = wd
+		}
 		return ctx
 	}
+
 	ctx.TabId = pane.TabID
 	ctx.WorkspaceId = pane.WorkspaceID
 	ctx.TerminalId = pane.TerminalID
 	ctx.Agent = pane.Agent
 	ctx.AgentSessionId = pane.AgentSession.Value
+
+	// The pane's cwd is authoritative for the working directory: it is correct
+	// whether we were launched from the pane's own shell (where HERDR_PANE_ID is
+	// set) or from a keybinding (which runs server-side, where our own process
+	// cwd would be wrong). Prefer the foreground process cwd, then the shell cwd,
+	// and only fall back to our own cwd if herdr reports neither.
+	ctx.WorkDir = pane.ForegroundCwd
 	if ctx.WorkDir == "" {
-		ctx.WorkDir = pane.ForegroundCwd
+		ctx.WorkDir = pane.Cwd
+	}
+	if ctx.WorkDir == "" {
+		if wd, e := os.Getwd(); e == nil {
+			ctx.WorkDir = wd
+		}
 	}
 
 	// Tab and workspace labels are best-effort; ignore their errors.

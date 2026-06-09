@@ -21,7 +21,20 @@ herdr-plus --mode=quick-actions  # explicit
 
 The bare command opens a focused split beneath your current pane and runs the
 picker there. Choose an action, and the pane closes itself when the action runs.
-You'll usually bind `herdr-plus` to a herdr keybinding.
+
+## Install the keybinding
+
+```bash
+herdr-plus install                 # binds prefix+down -> quick-actions
+herdr-plus install --key=prefix+a  # pick a different key
+herdr-plus install --mode=<slug>   # bind a specific mode
+```
+
+`install` adds a `[[keys.command]]` entry to herdr's `config.toml` that runs the
+**absolute path** of the binary you invoked, then reloads the running herdr
+server. It is idempotent (it won't duplicate an existing herdr-plus binding) and
+refuses to overwrite a key already bound to something else. After installing,
+press your herdr prefix (default `ctrl+b`) followed by the bound key.
 
 ## Configuration
 

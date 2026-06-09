@@ -19,9 +19,15 @@ import (
 // TUI and, on exit, closes its own pane. The launcher re-invokes itself in
 // picker mode, so end users only ever run the bare binary.
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "picker" {
-		runPickerCmd(os.Args[2:])
-		return
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "picker":
+			runPickerCmd(os.Args[2:])
+			return
+		case "install":
+			runInstallCmd(os.Args[2:])
+			return
+		}
 	}
 	runLauncherCmd(os.Args[1:])
 }
@@ -83,10 +89,15 @@ func runLauncher(mode Mode) {
 	}
 
 	// HERDR_PANE_ID identifies the pane we are launched from; it is the pane we
-	// split to create the picker beneath it.
+	// split to create the picker beneath it. It is set in a pane's own shell but
+	// not for a keybinding (which runs server-side), so fall back to the focused
+	// pane in that case.
 	paneID := os.Getenv("HERDR_PANE_ID")
 	if paneID == "" {
-		errExit("HERDR_PANE_ID is not set; are you running inside herdr?")
+		paneID, err = client.focusedPaneID()
+		if err != nil || paneID == "" {
+			errExit("could not determine the focused pane; are you running inside herdr?")
+		}
 	}
 
 	// Resolve our own absolute path so the new pane's shell can launch the

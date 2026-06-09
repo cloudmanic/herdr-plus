@@ -135,6 +135,27 @@ type paneInfo struct {
 	} `json:"agent_session"`
 }
 
+// focusedPaneID returns the id of the currently focused pane. It is used when
+// herdr-plus is launched outside a pane's own shell — for example from a
+// keybinding, which runs server-side and does not set HERDR_PANE_ID.
+func (c *herdrClient) focusedPaneID() (string, error) {
+	var out struct {
+		Panes []struct {
+			PaneID  string `json:"pane_id"`
+			Focused bool   `json:"focused"`
+		} `json:"panes"`
+	}
+	if err := c.call("pane.list", map[string]any{}, &out); err != nil {
+		return "", err
+	}
+	for _, p := range out.Panes {
+		if p.Focused {
+			return p.PaneID, nil
+		}
+	}
+	return "", errors.New("no focused pane")
+}
+
 // paneGet fetches metadata for a single pane, including its working directory
 // and the tab/workspace it belongs to.
 func (c *herdrClient) paneGet(paneID string) (paneInfo, error) {
