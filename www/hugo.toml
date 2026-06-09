@@ -35,7 +35,7 @@ disableKinds = ["taxonomy", "term", "RSS"]
   # The product-tour video. Paste a YouTube/Vimeo *embed* URL here (e.g.
   # https://www.youtube.com/embed/XXXX) and the hero swaps the animated
   # terminal placeholder for the real video automatically. Empty = placeholder.
-  heroVideoUrl = ""
+  heroVideoUrl = "https://www.youtube.com/embed/G-_4QAA53s4"
 
   # External references — single source of truth, surfaced across templates.
   githubUrl       = "https://github.com/cloudmanic/herdr-plus"
