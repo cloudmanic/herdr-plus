@@ -1,0 +1,15 @@
+# A project-local quick action. Files under .herdr-plus/quick-actions/ in a repo
+# show up in the quick-actions picker — grouped under a "Project" heading — but
+# only when you launch herdr-plus from inside that repo. They use the exact same
+# format as your global actions in ~/.config/herdr-plus/quick-actions/.
+#
+# The command runs in the directory you launched from (the repo root here, where
+# the Makefile lives).
+#
+# The trailing `read -t … </dev/tty` holds the pane open until you press Enter
+# (or 30s passes) so you can read build output before the picker pane closes.
+# See make-test.toml for the other keep-open options (plain read, or sleep).
+
+name = "make build"
+description = "Build the herdr-plus binary (make build)"
+command = 'make build; printf "\n— done · press Enter to close (auto-closes in 30s) —\n"; read -t 30 _ </dev/tty || true'

@@ -58,6 +58,21 @@ func (o Option) resolvedValue() string {
 	return o.Label
 }
 
+// actionOrigin records where an action was loaded from. The picker uses it to
+// group project-local actions separately from the user's global actions so it is
+// always clear which is which.
+type actionOrigin int
+
+const (
+	// originGlobal is an action from the user's global config dir
+	// (~/.config/herdr-plus/<mode>/). It is the zero value, so any Action built
+	// without an explicit origin is treated as global.
+	originGlobal actionOrigin = iota
+	// originProject is an action from a repo's own .herdr-plus/<mode>/ directory,
+	// available only when herdr-plus is launched from inside that repo.
+	originProject
+)
+
 // FormConfig customizes the text field shown for a "form" action.
 type FormConfig struct {
 	// Prompt is the label rendered above the input field.
@@ -82,6 +97,10 @@ type Action struct {
 	// source is the file the action was loaded from, used only for error
 	// messages. It is not part of the on-disk format.
 	source string
+
+	// origin marks whether the action came from the global config or a project's
+	// .herdr-plus directory. Set at load time; not part of the on-disk format.
+	origin actionOrigin
 }
 
 // effectiveType returns the action's type, defaulting to TypeCommand when the

@@ -148,6 +148,29 @@ project and the directory starts empty — control mode's onboarding screen expl
 how to add your first one. In both cases: add a file to add an entry, delete a file
 to remove it.
 
+### Per-project quick actions
+
+A repo can ship its own quick actions. Add a `.herdr-plus/` directory at the repo
+root that mirrors the global layout, and drop one `*.toml` per action into its
+`quick-actions/` subdirectory — same format as your global actions:
+
+```
+your-repo/
+  .herdr-plus/
+    quick-actions/
+      make-build.toml
+      make-test.toml
+```
+
+When you launch the quick-actions picker from inside that repo, its project
+actions appear **grouped under a `Project` heading**, above your `Global` ones, so
+it is always clear which is which. (Start typing to filter and the two groups
+merge into a single ranked list.) Launch from a repo with no `.herdr-plus`
+directory and the picker looks exactly as before — a single, ungrouped list. The
+directory is read-only and never auto-created: it shows up only when a repo
+actually provides it. This repo ships one as a live example (`make build` /
+`make test`).
+
 ## Actions
 
 An action has a `name`, a `description`, a `command`, and a `type`. The command

@@ -1,0 +1,17 @@
+# A second project-local action, to show more than one project entry grouped
+# together. Same format as the global actions; runs in the repo root.
+#
+# Keeping the pane open: after the command finishes, herdr-plus closes the
+# picker's pane — so a quick command's output would flash by. To hold the pane
+# until you've read it, end the command with a "wait". The action's stdin is
+# /dev/null, so the wait must read the terminal directly via </dev/tty:
+#
+#   read _ </dev/tty            # wait for Enter, then close
+#   read -t 30 _ </dev/tty      # ...but auto-close after 30s if you walk away
+#   sleep 5                     # simplest: just linger N seconds, then close
+#
+# The `|| true` keeps a read timeout (or a missing tty) from looking like an error.
+
+name = "make test"
+description = "Run the herdr-plus test suite (make test)"
+command = 'make test; printf "\n— done · press Enter to close (auto-closes in 30s) —\n"; read -t 30 _ </dev/tty || true'
