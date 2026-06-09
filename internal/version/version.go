@@ -12,4 +12,4 @@ package version
 // Version is the herdr-plus release version, printed by `herdr-plus version`.
 // Release automation bumps the patch number on every merge to main; edit the
 // major or minor by hand to cut a larger release.
-const Version = "0.0.2"
+const Version = "0.0.3"
