@@ -31,7 +31,7 @@ func main() {
 func runLauncher() {
 	client, err := newHerdrClient()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "herdr-quick-actions:", err)
+		fmt.Fprintln(os.Stderr, "herdr-plus:", err)
 		os.Exit(1)
 	}
 
@@ -39,7 +39,7 @@ func runLauncher() {
 	// split to create the picker beneath it.
 	paneID := os.Getenv("HERDR_PANE_ID")
 	if paneID == "" {
-		fmt.Fprintln(os.Stderr, "herdr-quick-actions: HERDR_PANE_ID is not set; are you running inside herdr?")
+		fmt.Fprintln(os.Stderr, "herdr-plus: HERDR_PANE_ID is not set; are you running inside herdr?")
 		os.Exit(1)
 	}
 
@@ -47,7 +47,7 @@ func runLauncher() {
 	// picker even when the binary is not on PATH.
 	exe, err := os.Executable()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "herdr-quick-actions:", err)
+		fmt.Fprintln(os.Stderr, "herdr-plus:", err)
 		os.Exit(1)
 	}
 
@@ -55,7 +55,7 @@ func runLauncher() {
 	// flow to the picker.
 	newPane, err := client.splitDown(paneID, true)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "herdr-quick-actions: split failed:", err)
+		fmt.Fprintln(os.Stderr, "herdr-plus: split failed:", err)
 		os.Exit(1)
 	}
 
@@ -66,7 +66,7 @@ func runLauncher() {
 	// Start the picker in the new pane, handing it the new pane's id so it can
 	// close itself when done.
 	if err := client.sendInput(newPane, fmt.Sprintf("%s picker %s\n", exe, newPane)); err != nil {
-		fmt.Fprintln(os.Stderr, "herdr-quick-actions: failed to start picker:", err)
+		fmt.Fprintln(os.Stderr, "herdr-plus: failed to start picker:", err)
 		os.Exit(1)
 	}
 }

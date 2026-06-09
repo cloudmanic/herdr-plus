@@ -1,4 +1,4 @@
-module github.com/cloudmanic/herdr-quick-actions
+module github.com/cloudmanic/herdr-plus
 
 go 1.26.2
 

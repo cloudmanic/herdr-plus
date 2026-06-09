@@ -1,5 +1,5 @@
 # Compiled binary (same name as the module; anchored to repo root)
-/herdr-quick-actions
+/herdr-plus
 
 # Go build & test artifacts
 *.test

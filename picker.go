@@ -240,7 +240,7 @@ func runPicker(args []string) {
 	p := tea.NewProgram(newPickerModel(), tea.WithAltScreen())
 	result, err := p.Run()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "herdr-quick-actions:", err)
+		fmt.Fprintln(os.Stderr, "herdr-plus:", err)
 	}
 
 	// Run the chosen command before tearing down the pane. "open <url>" returns
