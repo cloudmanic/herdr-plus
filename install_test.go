@@ -78,33 +78,40 @@ command = "/abs/herdr-plus --mode=quick-actions"
 	}
 }
 
-// TestExistingAndConflictBinding checks the idempotency and conflict detection
-// used by install.
+// TestExistingAndConflictBinding checks the per-mode idempotency and conflict
+// detection used by install: a binding matches only when both the binary and the
+// --mode match, so the two modes can be installed side by side.
 func TestExistingAndConflictBinding(t *testing.T) {
-	self := "/abs/herdr-plus"
+	quickCmd := "/abs/herdr-plus --mode=quick-actions"
+	controlCmd := "/abs/herdr-plus --mode=control"
 	bindings := []keybinding{
 		{Key: "prefix+u", Command: "$HOME/bin/setup.sh"},
-		{Key: "prefix+j", Command: "/abs/herdr-plus --mode=quick-actions"},
+		{Key: "prefix+down", Command: quickCmd},
 	}
 
-	// Our binding is found regardless of the key it sits on.
-	if b, ok := existingBinding(bindings, self); !ok || b.Key != "prefix+j" {
-		t.Fatalf("existingBinding = %+v, %v; want prefix+j", b, ok)
+	// The quick-actions binding is found by its exact command.
+	if b, ok := existingBinding(bindings, quickCmd); !ok || b.Key != "prefix+down" {
+		t.Fatalf("existingBinding(quick-actions) = %+v, %v; want prefix+down", b, ok)
 	}
 
-	// prefix+u is taken by something that is not us -> conflict.
-	if b, ok := conflictBinding(bindings, "prefix+u", self); !ok || b.Command != "$HOME/bin/setup.sh" {
-		t.Fatalf("conflictBinding(prefix+u) = %+v, %v; want a conflict", b, ok)
+	// Control mode is NOT installed yet: same binary, different --mode.
+	if b, ok := existingBinding(bindings, controlCmd); ok {
+		t.Fatalf("existingBinding(control) = %+v; want not found (different mode)", b)
 	}
 
-	// prefix+j is ours, so it is not reported as a conflict.
-	if _, ok := conflictBinding(bindings, "prefix+j", self); ok {
-		t.Fatal("conflictBinding(prefix+j) reported a conflict for our own binding")
+	// Installing control on prefix+down would clobber quick-actions -> conflict.
+	if b, ok := conflictBinding(bindings, "prefix+down", controlCmd); !ok || b.Command != quickCmd {
+		t.Fatalf("conflictBinding(prefix+down, control) = %+v, %v; want the quick-actions conflict", b, ok)
 	}
 
-	// A free key has no conflict.
-	if _, ok := conflictBinding(bindings, "prefix+down", self); ok {
-		t.Fatal("conflictBinding(prefix+down) reported a conflict for a free key")
+	// prefix+down holds quick-actions' own command, so it is not a self-conflict.
+	if _, ok := conflictBinding(bindings, "prefix+down", quickCmd); ok {
+		t.Fatal("conflictBinding(prefix+down, quick-actions) reported a conflict for its own binding")
+	}
+
+	// A free key (prefix+up) has no conflict for control.
+	if _, ok := conflictBinding(bindings, "prefix+up", controlCmd); ok {
+		t.Fatal("conflictBinding(prefix+up, control) reported a conflict for a free key")
 	}
 }
 

@@ -84,10 +84,11 @@ func (c *herdrClient) call(method string, params map[string]any, out any) error 
 	return nil
 }
 
-// splitDown splits the target pane horizontally, creating a new pane beneath it,
-// and returns the new pane's id. When focus is true the new pane becomes the
-// focused pane (the socket API does not focus new panes by default).
-func (c *herdrClient) splitDown(targetPaneID string, focus bool) (string, error) {
+// paneSplit splits the target pane in the given direction ("down" for a new pane
+// beneath it, "right" for one beside it), creating a new pane, and returns the
+// new pane's id. When focus is true the new pane becomes the focused pane (the
+// socket API does not focus new panes by default).
+func (c *herdrClient) paneSplit(targetPaneID, direction string, focus bool) (string, error) {
 	var out struct {
 		Pane struct {
 			PaneID string `json:"pane_id"`
@@ -95,7 +96,7 @@ func (c *herdrClient) splitDown(targetPaneID string, focus bool) (string, error)
 	}
 	err := c.call("pane.split", map[string]any{
 		"target_pane_id": targetPaneID,
-		"direction":      "down",
+		"direction":      direction,
 		"focus":          focus,
 	}, &out)
 	if err != nil {
@@ -197,4 +198,76 @@ func (c *herdrClient) workspaceGet(workspaceID string) (workspaceInfo, error) {
 	}
 	err := c.call("workspace.get", map[string]any{"workspace_id": workspaceID}, &out)
 	return out.Workspace, err
+}
+
+// workspaceCreate makes a brand-new workspace rooted at cwd with the given
+// label, and returns the ids of the new workspace, its single root tab, and
+// that tab's root pane. When focus is true the workspace becomes the active one
+// (the user is switched to it); pass false to create it in the background.
+// Control mode uses this both to open its own "Herdr Plus" workspace and to
+// build a project's workspace.
+func (c *herdrClient) workspaceCreate(cwd, label string, focus bool) (workspaceID, tabID, paneID string, err error) {
+	var out struct {
+		Workspace struct {
+			WorkspaceID string `json:"workspace_id"`
+		} `json:"workspace"`
+		Tab struct {
+			TabID string `json:"tab_id"`
+		} `json:"tab"`
+		RootPane struct {
+			PaneID string `json:"pane_id"`
+		} `json:"root_pane"`
+	}
+	err = c.call("workspace.create", map[string]any{
+		"cwd":   cwd,
+		"label": label,
+		"focus": focus,
+	}, &out)
+	if err != nil {
+		return "", "", "", err
+	}
+	return out.Workspace.WorkspaceID, out.Tab.TabID, out.RootPane.PaneID, nil
+}
+
+// tabCreate adds a tab to an existing workspace and returns the new tab's id and
+// its root pane's id. focus controls whether the new tab is brought to the front
+// — we create a project's later tabs with focus=false so the first tab stays
+// active while the rest spin up behind it.
+func (c *herdrClient) tabCreate(workspaceID, label string, focus bool) (tabID, paneID string, err error) {
+	var out struct {
+		Tab struct {
+			TabID string `json:"tab_id"`
+		} `json:"tab"`
+		RootPane struct {
+			PaneID string `json:"pane_id"`
+		} `json:"root_pane"`
+	}
+	err = c.call("tab.create", map[string]any{
+		"workspace_id": workspaceID,
+		"label":        label,
+		"focus":        focus,
+	}, &out)
+	if err != nil {
+		return "", "", err
+	}
+	return out.Tab.TabID, out.RootPane.PaneID, nil
+}
+
+// tabRename changes a tab's human label. A freshly created workspace's root tab
+// is named "1"; we rename it to the project's first tab name (or "projects" for
+// the control workspace itself).
+func (c *herdrClient) tabRename(tabID, label string) error {
+	return c.call("tab.rename", map[string]any{
+		"tab_id": tabID,
+		"label":  label,
+	}, nil)
+}
+
+// workspaceClose tears down a whole workspace and all of its tabs and panes.
+// Control mode calls this on its own ephemeral "Herdr Plus" workspace once a
+// project has been opened (or the picker is cancelled).
+func (c *herdrClient) workspaceClose(workspaceID string) error {
+	return c.call("workspace.close", map[string]any{
+		"workspace_id": workspaceID,
+	}, nil)
 }

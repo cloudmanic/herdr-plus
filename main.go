@@ -23,6 +23,9 @@ import (
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "control":
+			runControlCmd(os.Args[2:])
+			return
 		case "picker":
 			runPickerCmd(os.Args[2:])
 			return
@@ -81,24 +84,37 @@ func runPickerCmd(args []string) {
 	runPicker(mode, ctx, selfPane)
 }
 
-// runLauncher splits the current herdr pane downward, focuses the new pane, and
-// launches this same binary in picker mode inside it. Before splitting it
-// gathers the run context (working directory and herdr session metadata) from
-// the pane it was invoked in — the only pane that knows the user's real working
-// directory — and hands it to the picker so the chosen action sees it. The
-// launcher then returns immediately so the original shell prompt comes back.
+// runLauncher dispatches to the right launch behavior for the mode. Modes differ
+// in how they present themselves: quick-actions opens a small split beneath the
+// current pane, while control mode opens a brand-new full-screen workspace.
 func runLauncher(mode Mode) {
 	client, err := newHerdrClient()
 	if err != nil {
 		errExit(err)
 	}
 
+	switch mode.Slug {
+	case ModeControl.Slug:
+		launchControl(client)
+	default:
+		launchPicker(client, mode)
+	}
+}
+
+// launchPicker splits the current herdr pane downward, focuses the new pane, and
+// launches this same binary in picker mode inside it. Before splitting it
+// gathers the run context (working directory and herdr session metadata) from
+// the pane it was invoked in — the only pane that knows the user's real working
+// directory — and hands it to the picker so the chosen action sees it. It then
+// returns immediately so the original shell prompt comes back.
+func launchPicker(client *herdrClient, mode Mode) {
 	// HERDR_PANE_ID identifies the pane we are launched from; it is the pane we
 	// split to create the picker beneath it. It is set in a pane's own shell but
 	// not for a keybinding (which runs server-side), so fall back to the focused
 	// pane in that case.
 	paneID := os.Getenv("HERDR_PANE_ID")
 	if paneID == "" {
+		var err error
 		paneID, err = client.focusedPaneID()
 		if err != nil || paneID == "" {
 			errExit("could not determine the focused pane; are you running inside herdr?")
@@ -121,7 +137,7 @@ func runLauncher(mode Mode) {
 
 	// Create the picker pane beneath the current one and focus it so keystrokes
 	// flow to the picker.
-	newPane, err := client.splitDown(paneID, true)
+	newPane, err := client.paneSplit(paneID, "down", true)
 	if err != nil {
 		errExit("split failed:", err)
 	}

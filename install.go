@@ -31,13 +31,19 @@ type keybinding struct {
 // binding and refuses to clobber a key already taken by something else.
 func runInstallCmd(args []string) {
 	fs := flag.NewFlagSet("install", flag.ExitOnError)
-	key := fs.String("key", "prefix+down", "herdr keybinding to bind (e.g. prefix+down)")
-	modeSlug := fs.String("mode", "", "which herdr-plus mode the keybinding launches (default: quick-actions)")
+	key := fs.String("key", "", "herdr keybinding to bind (default: the mode's own key, e.g. prefix+up for control)")
+	modeSlug := fs.String("mode", "", "which herdr-plus mode the keybinding launches (default: control)")
 	_ = fs.Parse(args)
 
 	mode, err := lookupMode(*modeSlug)
 	if err != nil {
 		errExit(err)
+	}
+
+	// With no explicit --key, bind the mode's own default key so each mode lands
+	// on its conventional binding (control → prefix+up, quick-actions → prefix+down).
+	if *key == "" {
+		*key = mode.DefaultKey
 	}
 
 	// The absolute path of this very binary — what the keybinding will run.
@@ -57,19 +63,21 @@ func runInstallCmd(args []string) {
 	// Read existing bindings (a missing file just means "none yet").
 	existing, _ := readKeybindings(cfgPath)
 
-	// Idempotent: if herdr-plus is already bound, report where and stop.
-	if b, ok := existingBinding(existing, self); ok {
+	// Idempotent per mode: if THIS mode is already bound, report where and stop.
+	// Other modes share the binary but differ by --mode, so installing control
+	// does not trip over an existing quick-actions binding.
+	if b, ok := existingBinding(existing, command); ok {
 		if b.Key == *key {
-			fmt.Printf("herdr-plus: already installed — %s launches herdr-plus.\n", b.Key)
+			fmt.Printf("herdr-plus: %s already installed — press %s to launch it.\n", mode.Slug, b.Key)
 		} else {
-			fmt.Printf("herdr-plus: already installed at %s. Remove that binding in %s to rebind to %s.\n", b.Key, cfgPath, *key)
+			fmt.Printf("herdr-plus: %s already installed at %s. Remove that binding in %s to rebind to %s.\n", mode.Slug, b.Key, cfgPath, *key)
 		}
 		return
 	}
 
-	// Don't clobber a key someone else is using.
-	if b, ok := conflictBinding(existing, *key, self); ok {
-		errExit(fmt.Sprintf("key %q is already bound to: %s\nChoose a different key with --key (e.g. --key=prefix+up or --key=prefix+a).", *key, b.Command))
+	// Don't clobber a key already used by anything else (including the other mode).
+	if b, ok := conflictBinding(existing, *key, command); ok {
+		errExit(fmt.Sprintf("key %q is already bound to: %s\nChoose a different key with --key (e.g. --key=prefix+a).", *key, b.Command))
 	}
 
 	if err := appendToFile(cfgPath, keybindBlock(*key, command, description)); err != nil {
@@ -131,22 +139,25 @@ func readKeybindings(path string) ([]keybinding, error) {
 	return out, nil
 }
 
-// existingBinding finds the binding that already launches the given binary path,
-// identified by the absolute path appearing anywhere in its command.
-func existingBinding(bindings []keybinding, selfPath string) (keybinding, bool) {
+// existingBinding finds a binding that already runs this exact herdr-plus
+// command — same binary and same --mode. Because each mode's command carries its
+// own --mode flag, two herdr-plus modes never match each other here, so
+// installing one mode is idempotent without disturbing the other.
+func existingBinding(bindings []keybinding, command string) (keybinding, bool) {
 	for _, b := range bindings {
-		if strings.Contains(b.Command, selfPath) {
+		if b.Command == command {
 			return b, true
 		}
 	}
 	return keybinding{}, false
 }
 
-// conflictBinding finds a binding that occupies key but is not our own
-// herdr-plus binding.
-func conflictBinding(bindings []keybinding, key, selfPath string) (keybinding, bool) {
+// conflictBinding finds a binding that occupies key with a different command —
+// anything other than this mode's own binding (including herdr-plus's other
+// mode). That is a real conflict we must not clobber.
+func conflictBinding(bindings []keybinding, key, command string) (keybinding, bool) {
 	for _, b := range bindings {
-		if b.Key == key && !strings.Contains(b.Command, selfPath) {
+		if b.Key == key && b.Command != command {
 			return b, true
 		}
 	}
