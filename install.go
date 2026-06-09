@@ -24,29 +24,24 @@ type keybinding struct {
 	Command string
 }
 
-// runInstallCmd wires herdr-plus into herdr's config.toml as a keybinding so a
-// single keypress launches it. The bound command uses the absolute path of the
-// running binary, so it works no matter where herdr-plus lives or what the
-// current directory is. Re-running is safe: it detects an existing herdr-plus
-// binding and refuses to clobber a key already taken by something else.
+// runInstallCmd wires herdr-plus into herdr's config.toml as one or more
+// keybindings so a single keypress launches it. The bound command uses the
+// absolute path of the running binary, so it works no matter where herdr-plus
+// lives or what the current directory is. Re-running is safe: it detects an
+// existing herdr-plus binding and refuses to clobber a key already taken by
+// something else.
+//
+// With neither --mode nor --key, it installs EVERY mode on its own default key
+// (control → prefix+up, quick-actions → prefix+down) — the common case where a
+// bare `herdr-plus install` should wire up the whole add-on in one shot. An
+// explicit --mode (optionally with --key) installs just that single mode.
 func runInstallCmd(args []string) {
 	fs := flag.NewFlagSet("install", flag.ExitOnError)
 	key := fs.String("key", "", "herdr keybinding to bind (default: the mode's own key, e.g. prefix+up for control)")
-	modeSlug := fs.String("mode", "", "which herdr-plus mode the keybinding launches (default: control)")
+	modeSlug := fs.String("mode", "", "which herdr-plus mode the keybinding launches (default: install every mode on its own key)")
 	_ = fs.Parse(args)
 
-	mode, err := lookupMode(*modeSlug)
-	if err != nil {
-		errExit(err)
-	}
-
-	// With no explicit --key, bind the mode's own default key so each mode lands
-	// on its conventional binding (control → prefix+up, quick-actions → prefix+down).
-	if *key == "" {
-		*key = mode.DefaultKey
-	}
-
-	// The absolute path of this very binary — what the keybinding will run.
+	// The absolute path of this very binary — what every keybinding will run.
 	self, err := selfBinaryPath()
 	if err != nil {
 		errExit(err)
@@ -57,6 +52,53 @@ func runInstallCmd(args []string) {
 		errExit(err)
 	}
 
+	// Bare install: bind each mode to its own default key in one pass, then
+	// reload once. A conflict on one mode is reported but does not stop the
+	// others, so installing both is as forgiving as possible.
+	if *modeSlug == "" && *key == "" {
+		wroteAny := false
+		for _, m := range orderedModes {
+			if wrote, _ := installMode(m, m.DefaultKey, self, cfgPath); wrote {
+				wroteAny = true
+			}
+		}
+		if wroteAny {
+			reloadHerdrConfig("")
+		}
+		return
+	}
+
+	// Single-mode install: resolve the requested mode and bind it on its own
+	// default key unless --key overrides.
+	mode, err := lookupMode(*modeSlug)
+	if err != nil {
+		errExit(err)
+	}
+	k := *key
+	if k == "" {
+		k = mode.DefaultKey
+	}
+
+	wrote, conflict := installMode(mode, k, self, cfgPath)
+	if conflict {
+		// installMode already explained the clash on stderr; exit non-zero so
+		// scripts notice the explicit install did not take.
+		os.Exit(1)
+	}
+	if wrote {
+		reloadHerdrConfig(k)
+	}
+}
+
+// installMode binds a single herdr-plus mode to key in herdr's config.toml. It
+// is idempotent per mode (each mode's command carries its own --mode, so two
+// modes never match each other) and never clobbers a key already taken by
+// something else. It returns wrote=true when it actually appended a new binding
+// — telling the caller the config needs a reload — and conflict=true when key
+// was already occupied by an unrelated command. It reads the file fresh on each
+// call, so looping over modes correctly sees bindings written earlier in the
+// same run.
+func installMode(mode Mode, key, self, cfgPath string) (wrote bool, conflict bool) {
 	command := shellQuote(self) + " --mode=" + mode.Slug
 	description := "herdr-plus: " + mode.Slug
 
@@ -64,32 +106,42 @@ func runInstallCmd(args []string) {
 	existing, _ := readKeybindings(cfgPath)
 
 	// Idempotent per mode: if THIS mode is already bound, report where and stop.
-	// Other modes share the binary but differ by --mode, so installing control
-	// does not trip over an existing quick-actions binding.
 	if b, ok := existingBinding(existing, command); ok {
-		if b.Key == *key {
+		if b.Key == key {
 			fmt.Printf("herdr-plus: %s already installed — press %s to launch it.\n", mode.Slug, b.Key)
 		} else {
-			fmt.Printf("herdr-plus: %s already installed at %s. Remove that binding in %s to rebind to %s.\n", mode.Slug, b.Key, cfgPath, *key)
+			fmt.Printf("herdr-plus: %s already installed at %s. Remove that binding in %s to rebind to %s.\n", mode.Slug, b.Key, cfgPath, key)
 		}
-		return
+		return false, false
 	}
 
 	// Don't clobber a key already used by anything else (including the other mode).
-	if b, ok := conflictBinding(existing, *key, command); ok {
-		errExit(fmt.Sprintf("key %q is already bound to: %s\nChoose a different key with --key (e.g. --key=prefix+a).", *key, b.Command))
+	if b, ok := conflictBinding(existing, key, command); ok {
+		fmt.Fprintf(os.Stderr, "herdr-plus: %s not installed: key %q is already bound to: %s\n  Choose a different key with --key (e.g. --key=prefix+a).\n", mode.Slug, key, b.Command)
+		return false, true
 	}
 
-	if err := appendToFile(cfgPath, keybindBlock(*key, command, description)); err != nil {
+	if err := appendToFile(cfgPath, keybindBlock(key, command, description)); err != nil {
 		errExit("could not write to", cfgPath+":", err)
 	}
-	fmt.Printf("herdr-plus: bound %s -> %s\n  in %s\n", *key, command, cfgPath)
+	fmt.Printf("herdr-plus: bound %s -> %s\n  in %s\n", key, command, cfgPath)
+	return true, false
+}
 
-	// Best effort: reload the running server so the binding is live immediately.
+// reloadHerdrConfig asks the running herdr server to reload its config so any
+// freshly added binding is live without a restart. It is best effort: a failure
+// just prints how to reload manually. keyHint, when non-empty, names the single
+// key to press in the success message; empty means several were bound, so the
+// message stays generic.
+func reloadHerdrConfig(keyHint string) {
 	if out, err := exec.Command("herdr", "server", "reload-config").CombinedOutput(); err != nil {
 		fmt.Printf("herdr-plus: saved, but reload failed (%v). Run `herdr server reload-config` or restart herdr.\n", strings.TrimSpace(string(out)))
+		return
+	}
+	if keyHint != "" {
+		fmt.Printf("herdr-plus: reloaded herdr config. Press your prefix, then %s, to launch.\n", strings.TrimPrefix(keyHint, "prefix+"))
 	} else {
-		fmt.Printf("herdr-plus: reloaded herdr config. Press your prefix, then %s, to launch.\n", strings.TrimPrefix(*key, "prefix+"))
+		fmt.Println("herdr-plus: reloaded herdr config. Press your prefix, then a bound key (e.g. up or down), to launch.")
 	}
 }
 
