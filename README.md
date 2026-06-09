@@ -4,21 +4,59 @@ herdr-plus is an add-on platform for [herdr](https://herdr.dev) — a place to b
 extensions and plugins on top of herdr's terminal panes. The same binary can run
 in different **modes**; each mode decides what to do when it talks to herdr.
 
-We're in explore mode: the list of modes will grow over time. Today there is one.
+We're in explore mode: the list of modes will grow over time.
 
 ## Modes
 
 Pick a mode with `--mode=<slug>`. With no flag, the default mode runs.
 
-| Mode | Slug | What it does |
-|------|------|--------------|
-| Quick Actions | `quick-actions` (default) | A fuzzy launcher: pick an action and run it. |
+| Mode | Slug | Key | What it does |
+|------|------|-----|--------------|
+| Control | `control` (default) | `prefix+up` | herdr-plus's home base — a full-screen workspace for driving herdr. First feature: **Projects**. |
+| Quick Actions | `quick-actions` | `prefix+down` | A fuzzy launcher: pick an action and run it in a split. |
 
 ```bash
-herdr-plus                       # default mode (quick-actions)
-herdr-plus --mode=quick-actions  # explicit
+herdr-plus                       # default mode (control)
+herdr-plus --mode=quick-actions  # the fuzzy launcher
 herdr-plus version               # print the version and exit
 ```
+
+## Control mode & Projects
+
+Pressing `prefix+up` opens a brand-new, full-screen herdr workspace titled
+**Herdr Plus** with a `projects` tab, and runs the projects browser there. This is
+control mode — over time it will gain more features; today it has Projects.
+
+A **project** is a declarative herdr workspace template: a name, a description, a
+working directory, and an ordered list of tabs (each with an optional startup
+command). Fuzzy-find a project, press `enter`, and herdr-plus spins up a whole
+workspace — every tab created and every command running — then closes the ephemeral
+"Herdr Plus" workspace. It replaces hand-written workspace shell scripts with simple
+config files.
+
+Projects live in `~/.config/herdr-plus/projects/` (honoring `$XDG_CONFIG_HOME`), one
+TOML file per project (the file name doesn't matter):
+
+```toml
+name = "Options Cafe"
+description = "The main options.cafe monorepo"
+working_dir = "~/Development/options-cafe/options.cafe"   # ~ and $VARS expand
+
+[[tabs]]
+name = "claude"
+command = "claude --dangerously-skip-permissions --chrome"
+
+[[tabs]]
+name = "lazygit"
+command = "lazygit"
+
+[[tabs]]
+name = "terminal"   # no command — just an empty shell
+```
+
+Tabs open in file order; the first tab reuses the workspace's root tab and the rest
+are created behind it. A tab with no `command` is just an empty shell. With no
+project files yet, control mode shows an onboarding screen explaining all of this.
 
 ## Installing
 
@@ -51,10 +89,13 @@ picker there. Choose an action, and the pane closes itself when the action runs.
 ## Install the keybinding
 
 ```bash
-herdr-plus install                 # binds prefix+down -> quick-actions
-herdr-plus install --key=prefix+a  # pick a different key
-herdr-plus install --mode=<slug>   # bind a specific mode
+herdr-plus install                      # binds prefix+up -> control (the default mode)
+herdr-plus install --mode=quick-actions # binds prefix+down -> quick-actions
+herdr-plus install --key=prefix+a       # override the key for any mode
 ```
+
+Each mode has its own default key (control → `prefix+up`, quick-actions →
+`prefix+down`), so the two can be installed side by side. Pass `--key` to override.
 
 `install` adds a `[[keys.command]]` entry to herdr's `config.toml` that runs the
 **absolute path** of the binary you invoked, then reloads the running herdr
@@ -64,22 +105,26 @@ press your herdr prefix (default `ctrl+b`) followed by the bound key.
 
 ## Configuration
 
-All config lives under `~/.config/herdr-plus/` (honoring `$XDG_CONFIG_HOME`), with
-one subdirectory per mode:
+All config lives under `~/.config/herdr-plus/` (honoring `$XDG_CONFIG_HOME`):
 
 ```
 ~/.config/herdr-plus/
-  quick-actions/
+  projects/          # one *.toml per project (control mode)
+    options-cafe.toml
+    bevio.toml
+    ...
+  quick-actions/     # one *.toml per action (quick-actions mode)
     github.toml
     google.toml
-    open-repo.toml
     ...
 ```
 
-Each `*.toml` file in a mode's directory defines **one action**. Add a file to
-add an action; delete a file to remove it. The first time you run a mode, the
-directory is seeded with a set of example actions you can edit or delete — they
-won't come back once the directory exists.
+For **quick-actions**, each `*.toml` defines one action; the directory is seeded
+with editable examples the first time you run the mode. For **projects** (see
+[Control mode & Projects](#control-mode--projects)), each `*.toml` defines one
+project and the directory starts empty — control mode's onboarding screen explains
+how to add your first one. In both cases: add a file to add an entry, delete a file
+to remove it.
 
 ## Actions
 
