@@ -5,13 +5,15 @@ weight: 30
 ---
 
 You launch herdr-plus by pressing a herdr keybinding. The `herdr-plus install`
-command wires that binding into herdr for you.
+command wires those bindings into herdr for you.
 
 ## What `herdr-plus install` does
 
-`install` adds a `[[keys.command]]` entry to herdr's `config.toml` and reloads
-the running herdr server so the binding is live immediately. The entry it writes
-looks like this:
+A bare `herdr-plus install` installs **every mode at once**, each on its own
+default key (control → `prefix+up`, quick-actions → `prefix+down`). For each one
+it adds a `[[keys.command]]` entry to herdr's `config.toml`, then reloads the
+running herdr server so the bindings are live immediately. Pass `--mode` to
+install just a single mode. One entry looks like this:
 
 ```toml
 # herdr-plus — added by `herdr-plus install`
@@ -60,16 +62,20 @@ side without conflicting:
 | Control | `control` | `prefix+up` |
 | Quick Actions | `quick-actions` | `prefix+down` |
 
-When you run `install` without `--key`, it uses the mode's default.
+When you run `install` for a single mode without `--key`, it uses that mode's
+default.
 
 ## Installing both, side by side
 
+A bare `install` does this in one shot — it walks every mode and binds each to
+its default key:
+
 ```bash
-herdr-plus install                       # prefix+up   -> control
-herdr-plus install --mode=quick-actions  # prefix+down -> quick-actions
+herdr-plus install   # prefix+up -> control AND prefix+down -> quick-actions
 ```
 
-Now `prefix+up` opens Control mode and `prefix+down` opens Quick Actions.
+Now `prefix+up` opens Control mode and `prefix+down` opens Quick Actions. (You
+can still install them one at a time with `--mode` if you only want one.)
 
 ## Overriding the key
 

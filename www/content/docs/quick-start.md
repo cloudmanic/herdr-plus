@@ -37,16 +37,18 @@ overrides, and how upgrades work.
 
 ## 3. Install the keybindings
 
-`herdr-plus install` wires herdr-plus into herdr's `config.toml` as a keybinding
-and reloads the running herdr server, so the binding is live immediately.
+`herdr-plus install` wires herdr-plus into herdr's `config.toml` as keybindings
+and reloads the running herdr server, so the bindings are live immediately. A
+bare install binds **every mode at once**, each on its own default key:
 
 ```bash
-herdr-plus install                       # binds prefix+up   -> control (default mode)
-herdr-plus install --mode=quick-actions  # binds prefix+down -> quick-actions
+herdr-plus install                       # binds prefix+up -> control AND prefix+down -> quick-actions
+herdr-plus install --mode=quick-actions  # bind just quick-actions (prefix+down)
 ```
 
-Each mode claims its own default key, so the two coexist. Override any key with
-`--key=prefix+a`. See [Keybindings](../keybindings/) for the full story.
+Each mode claims its own default key, so the two coexist. Override a single
+mode's key with `--key=prefix+a`. See [Keybindings](../keybindings/) for the full
+story.
 
 ## 4. Press your prefix, then the key
 

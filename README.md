@@ -111,13 +111,14 @@ picker there. Choose an action, and the pane closes itself when the action runs.
 ## Install the keybinding
 
 ```bash
-herdr-plus install                      # binds prefix+up -> control (the default mode)
-herdr-plus install --mode=quick-actions # binds prefix+down -> quick-actions
-herdr-plus install --key=prefix+a       # override the key for any mode
+herdr-plus install                      # binds BOTH modes: prefix+up -> control, prefix+down -> quick-actions
+herdr-plus install --mode=quick-actions # bind just quick-actions (prefix+down)
+herdr-plus install --key=prefix+a       # override the key for a single mode
 ```
 
-Each mode has its own default key (control → `prefix+up`, quick-actions →
-`prefix+down`), so the two can be installed side by side. Pass `--key` to override.
+A bare `herdr-plus install` wires up every mode on its own default key (control →
+`prefix+up`, quick-actions → `prefix+down`) in one shot. Pass `--mode` to install
+just one, and `--key` to override that mode's key.
 
 `install` adds a `[[keys.command]]` entry to herdr's `config.toml` that runs the
 **absolute path** of the binary you invoked, then reloads the running herdr

@@ -39,11 +39,20 @@ var ModeQuickActions = Mode{Slug: "quick-actions", Title: "⚡ Quick Actions", D
 // front door of herdr-plus, so the bare binary opens it.
 var defaultMode = ModeControl
 
-// modes is every mode herdr-plus knows about, keyed by slug. Add new modes here.
-var modes = map[string]Mode{
-	ModeControl.Slug:      ModeControl,
-	ModeQuickActions.Slug: ModeQuickActions,
-}
+// orderedModes lists every mode herdr-plus knows about, in install order. A bare
+// `herdr-plus install` walks this slice so each mode lands on its conventional
+// key (control → prefix+up, quick-actions → prefix+down). Add new modes here.
+var orderedModes = []Mode{ModeControl, ModeQuickActions}
+
+// modes is every mode keyed by slug, derived from orderedModes so the lookup
+// table and the install order can never drift apart.
+var modes = func() map[string]Mode {
+	m := make(map[string]Mode, len(orderedModes))
+	for _, mode := range orderedModes {
+		m[mode.Slug] = mode
+	}
+	return m
+}()
 
 // lookupMode resolves a --mode slug to its Mode. An empty slug selects the
 // default mode; an unrecognized slug is an error so typos fail loudly instead of
