@@ -19,6 +19,11 @@ import (
 // will live elsewhere later; for now the repo is the home of everything.
 const docsURL = "https://github.com/cloudmanic/herdr-plus"
 
+// controlHeaderLines is how many screen lines precede the embedded fuzzyList in
+// the projects browser: the full-width title bar and the blank line under it. A
+// mouse click's screen row minus this offset is the list-local line for clickRow.
+const controlHeaderLines = 2
+
 // Control-mode styles. These build on the shared palette declared in picker.go
 // (titleStyle, nameStyle, descStyle, footerStyle, …); here we add the few extra
 // pieces the full-screen projects browser needs.
@@ -119,22 +124,48 @@ func (m controlModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.list.moveDown()
 			return m, nil
 		case "enter":
-			idx := m.list.selectedIndex()
-			if idx < 0 {
-				return m, nil
-			}
-			p := m.projects[idx]
-			m.chosen = &p
-			return m, tea.Quit
+			return m.activateProject()
 		}
 
 		cmd := m.list.editQuery(msg)
 		return m, cmd
+
+	case tea.MouseMsg:
+		// The onboarding card (no projects) has nothing to click.
+		if len(m.projects) == 0 {
+			return m, nil
+		}
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			m.list.moveUp()
+		case tea.MouseButtonWheelDown:
+			m.list.moveDown()
+		case tea.MouseButtonLeft:
+			// Move the highlight to the clicked row, opening it on release — the
+			// natural completion of a click.
+			if m.list.clickRow(msg.Y-controlHeaderLines) && msg.Action == tea.MouseActionRelease {
+				return m.activateProject()
+			}
+		}
+		return m, nil
 	}
 
 	// Non-key messages (e.g. the blink tick) keep the input alive.
 	cmd := m.list.editQuery(msg)
 	return m, cmd
+}
+
+// activateProject records the highlighted project as the chosen one and signals
+// a quit so its workspace gets built. Shared by the enter key and a left-click;
+// activating with nothing selectable is a no-op.
+func (m controlModel) activateProject() (tea.Model, tea.Cmd) {
+	idx := m.list.selectedIndex()
+	if idx < 0 {
+		return m, nil
+	}
+	p := m.projects[idx]
+	m.chosen = &p
+	return m, tea.Quit
 }
 
 // View renders the screen for the current state: the onboarding card when there
@@ -168,7 +199,7 @@ func (m controlModel) browserView(w, h int) string {
 	body := m.list.view("no matching projects")
 
 	detail := m.detailBar(w)
-	footer := footerStyle.Render("  ↑/↓ move · type to filter · enter open · esc quit")
+	footer := footerStyle.Render("  ↑/↓ move · type to filter · click/enter open · esc quit")
 
 	top := header + "\n\n" + body
 	bottom := detail + "\n" + footer

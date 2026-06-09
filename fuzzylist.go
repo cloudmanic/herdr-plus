@@ -163,6 +163,48 @@ func (l *fuzzyList) selectedIndex() int {
 	return it.ref
 }
 
+// listPromptLines is how many lines view() renders before the first result row:
+// the query/prompt line and the blank spacer beneath it. rowIndexAt and view()
+// share it, so the two must always agree about the list's layout.
+const listPromptLines = 2
+
+// rowIndexAt maps a view-local screen line (line 0 is the query/prompt line) to
+// the index into filtered of the selectable row drawn there, or -1 when the line
+// is the prompt, a blank spacer, a separator/heading, or past the end of the
+// list. It mirrors view()'s exact line accounting — the prompt line, the blank
+// spacer, then one line per selectable row and a blank (plus an optional heading
+// line) per separator — so this and view() must change together.
+func (l *fuzzyList) rowIndexAt(y int) int {
+	line := listPromptLines
+	for i, s := range l.filtered {
+		if !s.item.selectable {
+			line++ // the separator's leading blank line
+			if s.item.name != "" {
+				line++ // its heading line
+			}
+			continue
+		}
+		if line == y {
+			return i
+		}
+		line++
+	}
+	return -1
+}
+
+// clickRow moves the highlight to the selectable row at view-local line y,
+// reporting whether y landed on one. It is the mouse counterpart to moveUp /
+// moveDown: the caller subtracts its own header height from the click's screen
+// row before calling, so y is measured from the top of view()'s own output.
+func (l *fuzzyList) clickRow(y int) bool {
+	idx := l.rowIndexAt(y)
+	if idx < 0 {
+		return false
+	}
+	l.cursor = idx
+	return true
+}
+
 // editQuery feeds a message to the query box and re-filters. Non-key messages
 // (such as the cursor blink tick) pass through harmlessly.
 func (l *fuzzyList) editQuery(msg tea.Msg) tea.Cmd {
