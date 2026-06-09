@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
+	"time"
 )
 
 // herdrClient talks to the running herdr instance over its unix domain socket.
@@ -105,13 +107,125 @@ func (c *herdrClient) paneSplit(targetPaneID, direction string, focus bool) (str
 	return out.Pane.PaneID, nil
 }
 
-// sendInput writes text into a pane as if it were typed at the keyboard.
-// Include a trailing newline to submit a shell command.
-func (c *herdrClient) sendInput(paneID, text string) error {
-	return c.call("pane.send_input", map[string]any{
+// sendInput types text into a pane and then presses the given keys, as if at the
+// keyboard. The keys are herdr key names (e.g. "Enter") delivered as real key
+// events. To RUN a shell command, pass the command as text and "Enter" as the
+// sole key — do not embed a trailing newline in text. herdr's send_input treats
+// text as a paste: once the shell's line editor (zsh ZLE) is active it inserts an
+// embedded "\n" literally instead of executing the line, so the command would
+// just sit at the prompt until the user pressed Enter by hand. A real Enter key
+// always submits, which is also how herdr's own `pane run` works. Pass no keys
+// for plain typing with no submission.
+func (c *herdrClient) sendInput(paneID, text string, keys ...string) error {
+	params := map[string]any{
 		"pane_id": paneID,
 		"text":    text,
-	}, nil)
+	}
+	if len(keys) > 0 {
+		params["keys"] = keys
+	}
+	return c.call("pane.send_input", params, nil)
+}
+
+// paneRead returns the text currently shown in a pane. source selects which slice
+// of the terminal to read ("visible" for the on-screen rows, "recent" for the
+// recent scrollback); lines caps how many trailing lines come back. It exists so
+// tests can confirm a command actually ran — its output appeared — rather than
+// merely being typed at the prompt.
+func (c *herdrClient) paneRead(paneID, source string, lines int) (string, error) {
+	var out struct {
+		Read struct {
+			Text string `json:"text"`
+		} `json:"read"`
+	}
+	err := c.call("pane.read", map[string]any{
+		"pane_id": paneID,
+		"source":  source,
+		"lines":   lines,
+	}, &out)
+	if err != nil {
+		return "", err
+	}
+	return out.Read.Text, nil
+}
+
+// runCommand types command into a freshly created pane and submits it, pacing
+// itself to the shell's startup so the command actually runs instead of sitting
+// unsubmitted at the prompt. There are two startup races it has to dodge:
+//
+//   - Typing too early: a pane created moments ago may not have an interactive
+//     shell yet; keystrokes sent into that gap are dropped. So we first wait for
+//     the shell to draw its prompt.
+//   - Submitting too early: even once typing lands, pressing Enter before the
+//     shell's line editor has the text races startup and the line is lost. So we
+//     wait until the command visibly echoes before pressing Enter.
+//
+// Submission is a real Enter key, never a trailing "\n" in the text — herdr pastes
+// text, and an embedded newline is inserted literally once zsh's line editor is
+// active rather than running the line (see sendInput). Every wait is best effort:
+// on timeout we proceed anyway, so a slow or unusual shell degrades to the old
+// blind behavior rather than hanging.
+func (c *herdrClient) runCommand(paneID, command string) error {
+	// 1. Wait for the shell to be ready to receive input (its prompt is drawn).
+	c.waitForPaneReady(paneID, 5*time.Second)
+
+	// 2. Type the command (no trailing newline).
+	if err := c.sendInput(paneID, command); err != nil {
+		return err
+	}
+
+	// 3. Wait until the command echoes back, proving the line editor accepted it.
+	c.waitForPaneText(paneID, commandEchoProbe(command), 5*time.Second)
+
+	// 4. Submit with a real Enter key.
+	return c.sendInput(paneID, "", "Enter")
+}
+
+// commandEchoProbe returns a short, stable fragment of a command to look for when
+// confirming it was typed at the prompt: the first line, capped to a few
+// characters so it stays on a single terminal row. A long command wraps across
+// rows, so matching the whole string against the rendered screen would fail; a
+// short leading fragment does not wrap and is specific enough on an otherwise
+// empty fresh pane.
+func commandEchoProbe(command string) string {
+	probe := command
+	if i := strings.IndexByte(probe, '\n'); i >= 0 {
+		probe = probe[:i]
+	}
+	if len(probe) > 12 {
+		probe = probe[:12]
+	}
+	return strings.TrimSpace(probe)
+}
+
+// waitForPaneReady blocks until the pane shows any non-blank content — its shell
+// prompt — or the timeout elapses. A fresh pane is blank until its shell starts
+// and prints a prompt, so non-blank content is a good "ready for input" signal.
+// Best effort: a timeout just means we stop waiting and proceed.
+func (c *herdrClient) waitForPaneReady(paneID string, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if text, err := c.paneRead(paneID, "visible", 5); err == nil && strings.TrimSpace(text) != "" {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// waitForPaneText blocks until the pane's visible text contains probe or the
+// timeout elapses. An empty probe returns immediately. Best effort, like
+// waitForPaneReady: a timeout returns without error and the caller proceeds.
+func (c *herdrClient) waitForPaneText(paneID, probe string, timeout time.Duration) {
+	if probe == "" {
+		return
+	}
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if text, err := c.paneRead(paneID, "visible", 20); err == nil && strings.Contains(text, probe) {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 // closePane terminates a pane and frees its terminal. Closing the focused pane

@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/cloudmanic/herdr-plus/internal/version"
 )
@@ -142,14 +141,12 @@ func launchPicker(client *herdrClient, mode Mode) {
 		errExit("split failed:", err)
 	}
 
-	// Give the freshly spawned shell a brief moment to initialize before we send
-	// the command that starts the picker.
-	time.Sleep(250 * time.Millisecond)
-
 	// Start the picker in the new pane, handing it the mode, the encoded context,
-	// and the new pane's id so it can close itself when done.
-	launch := fmt.Sprintf("%s picker --mode=%s --ctx=%s %s\n", shellQuote(exe), mode.Slug, encoded, newPane)
-	if err := client.sendInput(newPane, launch); err != nil {
+	// and the new pane's id so it can close itself when done. runCommand waits for
+	// the new shell's prompt and submits with a real Enter key (not a trailing
+	// newline — see sendInput), so the picker starts reliably.
+	launch := fmt.Sprintf("%s picker --mode=%s --ctx=%s %s", shellQuote(exe), mode.Slug, encoded, newPane)
+	if err := client.runCommand(newPane, launch); err != nil {
 		errExit("failed to start picker:", err)
 	}
 }
