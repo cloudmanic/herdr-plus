@@ -1,0 +1,14 @@
+# A "form" action: choosing it shows a text field, and whatever you type becomes
+# {{.Value}} in the command. The built-in `urlquery` template function escapes
+# the text so it is safe inside a URL.
+#
+# The optional [form] table customizes the field's prompt and placeholder.
+
+name = "Search Google"
+description = "Type a query and open the results"
+type = "form"
+command = "open 'https://www.google.com/search?q={{.Value | urlquery}}'"
+
+[form]
+prompt = "Search Google for"
+placeholder = "e.g. herdr terminal multiplexer"

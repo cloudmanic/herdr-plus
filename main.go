@@ -7,66 +7,123 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"time"
 )
 
-// main dispatches between the two modes of the binary. With no arguments it
-// runs the launcher, which opens a bottom split and starts the picker inside
-// it. With "picker <pane-id>" it renders the fuzzy-finder TUI and, on exit,
-// closes the given pane.
+// main dispatches between the two modes of the binary. The bare binary
+// (optionally with --mode) is the launcher: it opens a bottom split and starts
+// the picker inside it. The hidden "picker" subcommand renders the fuzzy-finder
+// TUI and, on exit, closes its own pane. The launcher re-invokes itself in
+// picker mode, so end users only ever run the bare binary.
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "picker" {
-		runPicker(os.Args[2:])
+		runPickerCmd(os.Args[2:])
 		return
 	}
-	runLauncher()
+	runLauncherCmd(os.Args[1:])
+}
+
+// runLauncherCmd parses the launcher's flags (currently just --mode) and starts
+// the launcher for the resolved mode.
+func runLauncherCmd(args []string) {
+	fs := flag.NewFlagSet("herdr-plus", flag.ExitOnError)
+	modeSlug := fs.String("mode", "", "which herdr-plus mode to run (default: quick-actions)")
+	_ = fs.Parse(args)
+
+	mode, err := lookupMode(*modeSlug)
+	if err != nil {
+		errExit(err)
+	}
+	runLauncher(mode)
+}
+
+// runPickerCmd parses the internal picker invocation: --mode and --ctx flags
+// plus a trailing pane id (the picker's own pane, which it closes on exit).
+func runPickerCmd(args []string) {
+	fs := flag.NewFlagSet("picker", flag.ExitOnError)
+	modeSlug := fs.String("mode", "", "which herdr-plus mode to run")
+	ctxArg := fs.String("ctx", "", "base64-encoded run context from the launcher")
+	_ = fs.Parse(args)
+
+	mode, err := lookupMode(*modeSlug)
+	if err != nil {
+		errExit(err)
+	}
+	ctx, err := decodeRunContext(*ctxArg)
+	if err != nil {
+		errExit("could not decode run context:", err)
+	}
+
+	// The trailing argument is the picker's own pane id so it can close itself;
+	// fall back to HERDR_PANE_ID, which is this pane.
+	selfPane := ""
+	if rest := fs.Args(); len(rest) > 0 {
+		selfPane = rest[0]
+	}
+	if selfPane == "" {
+		selfPane = os.Getenv("HERDR_PANE_ID")
+	}
+
+	runPicker(mode, ctx, selfPane)
 }
 
 // runLauncher splits the current herdr pane downward, focuses the new pane, and
-// launches this same binary in picker mode inside it. It passes the new pane's
-// id to the picker so the picker can close exactly the right pane on exit. The
+// launches this same binary in picker mode inside it. Before splitting it
+// gathers the run context (working directory and herdr session metadata) from
+// the pane it was invoked in — the only pane that knows the user's real working
+// directory — and hands it to the picker so the chosen action sees it. The
 // launcher then returns immediately so the original shell prompt comes back.
-func runLauncher() {
+func runLauncher(mode Mode) {
 	client, err := newHerdrClient()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "herdr-plus:", err)
-		os.Exit(1)
+		errExit(err)
 	}
 
 	// HERDR_PANE_ID identifies the pane we are launched from; it is the pane we
 	// split to create the picker beneath it.
 	paneID := os.Getenv("HERDR_PANE_ID")
 	if paneID == "" {
-		fmt.Fprintln(os.Stderr, "herdr-plus: HERDR_PANE_ID is not set; are you running inside herdr?")
-		os.Exit(1)
+		errExit("HERDR_PANE_ID is not set; are you running inside herdr?")
 	}
 
 	// Resolve our own absolute path so the new pane's shell can launch the
 	// picker even when the binary is not on PATH.
 	exe, err := os.Executable()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "herdr-plus:", err)
-		os.Exit(1)
+		errExit(err)
+	}
+
+	// Gather context from the invoking pane and encode it for the picker.
+	ctx := gatherContext(client, paneID)
+	encoded, err := ctx.encode()
+	if err != nil {
+		errExit(err)
 	}
 
 	// Create the picker pane beneath the current one and focus it so keystrokes
 	// flow to the picker.
 	newPane, err := client.splitDown(paneID, true)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "herdr-plus: split failed:", err)
-		os.Exit(1)
+		errExit("split failed:", err)
 	}
 
-	// Give the freshly spawned shell a brief moment to initialize before we
-	// send the command that starts the picker.
+	// Give the freshly spawned shell a brief moment to initialize before we send
+	// the command that starts the picker.
 	time.Sleep(250 * time.Millisecond)
 
-	// Start the picker in the new pane, handing it the new pane's id so it can
-	// close itself when done.
-	if err := client.sendInput(newPane, fmt.Sprintf("%s picker %s\n", exe, newPane)); err != nil {
-		fmt.Fprintln(os.Stderr, "herdr-plus: failed to start picker:", err)
-		os.Exit(1)
+	// Start the picker in the new pane, handing it the mode, the encoded context,
+	// and the new pane's id so it can close itself when done.
+	launch := fmt.Sprintf("%s picker --mode=%s --ctx=%s %s\n", shellQuote(exe), mode.Slug, encoded, newPane)
+	if err := client.sendInput(newPane, launch); err != nil {
+		errExit("failed to start picker:", err)
 	}
+}
+
+// errExit prints a "herdr-plus:"-prefixed message to stderr and exits non-zero.
+func errExit(args ...any) {
+	fmt.Fprintln(os.Stderr, append([]any{"herdr-plus:"}, args...)...)
+	os.Exit(1)
 }

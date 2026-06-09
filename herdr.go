@@ -120,3 +120,60 @@ func (c *herdrClient) closePane(paneID string) error {
 		"pane_id": paneID,
 	}, nil)
 }
+
+// paneInfo is the subset of herdr's pane metadata we expose to actions.
+type paneInfo struct {
+	PaneID        string `json:"pane_id"`
+	TabID         string `json:"tab_id"`
+	WorkspaceID   string `json:"workspace_id"`
+	TerminalID    string `json:"terminal_id"`
+	Cwd           string `json:"cwd"`
+	ForegroundCwd string `json:"foreground_cwd"`
+	Agent         string `json:"agent"`
+	AgentSession  struct {
+		Value string `json:"value"`
+	} `json:"agent_session"`
+}
+
+// paneGet fetches metadata for a single pane, including its working directory
+// and the tab/workspace it belongs to.
+func (c *herdrClient) paneGet(paneID string) (paneInfo, error) {
+	var out struct {
+		Pane paneInfo `json:"pane"`
+	}
+	err := c.call("pane.get", map[string]any{"pane_id": paneID}, &out)
+	return out.Pane, err
+}
+
+// tabInfo is the subset of herdr's tab metadata we expose to actions.
+type tabInfo struct {
+	TabID string `json:"tab_id"`
+	Label string `json:"label"`
+}
+
+// tabGet fetches metadata for a single tab, notably its human label.
+func (c *herdrClient) tabGet(tabID string) (tabInfo, error) {
+	var out struct {
+		Tab tabInfo `json:"tab"`
+	}
+	err := c.call("tab.get", map[string]any{"tab_id": tabID}, &out)
+	return out.Tab, err
+}
+
+// workspaceInfo is the subset of herdr's workspace metadata we expose to
+// actions.
+type workspaceInfo struct {
+	WorkspaceID string `json:"workspace_id"`
+	Label       string `json:"label"`
+}
+
+// workspaceGet fetches metadata for a single workspace, notably its label —
+// which herdr derives from the repo or folder name and is our best stand-in for
+// a "session title".
+func (c *herdrClient) workspaceGet(workspaceID string) (workspaceInfo, error) {
+	var out struct {
+		Workspace workspaceInfo `json:"workspace"`
+	}
+	err := c.call("workspace.get", map[string]any{"workspace_id": workspaceID}, &out)
+	return out.Workspace, err
+}

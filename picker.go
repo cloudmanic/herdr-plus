@@ -9,16 +9,15 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/sahilm/fuzzy"
 )
 
 // Palette. A small, cohesive set of colors for a clean dark-terminal look.
+// These styles are shared with the fuzzyList component in the same package.
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -37,72 +36,56 @@ var (
 	footerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#4B5563"))
 )
 
-// scored is a command paired with the indexes of the characters in its name
-// that matched the current fuzzy query, used for highlighting.
-type scored struct {
-	cmd     Command
-	matched []int
-}
+// stage is which screen the picker is currently showing.
+type stage int
 
-// pickerModel holds the state of the fuzzy-finder TUI.
+const (
+	// stageActions is the top-level list of actions.
+	stageActions stage = iota
+	// stageSelect is the option list shown for a "select" action.
+	stageSelect
+	// stageForm is the text field shown for a "form" action.
+	stageForm
+)
+
+// pickerModel holds the state of the fuzzy-finder TUI. It is a small state
+// machine: pick an action, then for select/form actions gather the extra input
+// before the program quits and the chosen action runs.
 type pickerModel struct {
-	input    textinput.Model // the query box
-	all      []Command       // every available command
-	filtered []scored        // commands matching the current query, in rank order
-	cursor   int             // index into filtered of the highlighted row
-	width    int
-	height   int
-	chosen   *Command // set when the user selects a command
+	mode Mode
+	ctx  RunContext
+
+	stage stage
+
+	actions    []Action
+	actionList fuzzyList
+
+	// current is the action awaiting extra input (set in the select/form stages).
+	current    *Action
+	optionList fuzzyList
+	formInput  textinput.Model
+
+	width  int
+	height int
+
+	// Results, read back after the program exits.
+	chosen   *Action // the action to run, nil if the user cancelled
+	value    string  // resolved option value or form input for the chosen action
 	quitting bool
 }
 
-// newPickerModel builds the initial TUI state with every command visible.
-func newPickerModel() pickerModel {
-	ti := textinput.New()
-	ti.Placeholder = "Type to filter…"
-	ti.Prompt = ""
-	ti.Focus()
-
-	m := pickerModel{
-		input: ti,
-		all:   commands(),
+// newPickerModel builds the initial TUI state showing every action.
+func newPickerModel(mode Mode, ctx RunContext, actions []Action) pickerModel {
+	items := make([]listItem, len(actions))
+	for i, a := range actions {
+		items[i] = listItem{name: a.Name, desc: a.Description}
 	}
-	m.filter()
-	return m
-}
-
-// filter recomputes the filtered list from the current query. An empty query
-// shows every command in its natural order. Matching runs against the command
-// name and description together so a URL fragment also narrows the list, while
-// only matches that land inside the name are highlighted.
-func (m *pickerModel) filter() {
-	q := strings.TrimSpace(m.input.Value())
-	m.filtered = m.filtered[:0]
-
-	if q == "" {
-		for _, c := range m.all {
-			m.filtered = append(m.filtered, scored{cmd: c})
-		}
-	} else {
-		haystacks := make([]string, len(m.all))
-		nameLens := make([]int, len(m.all))
-		for i, c := range m.all {
-			haystacks[i] = c.Name + "  " + c.Description
-			nameLens[i] = len(c.Name)
-		}
-		for _, mt := range fuzzy.Find(q, haystacks) {
-			var inName []int
-			for _, idx := range mt.MatchedIndexes {
-				if idx < nameLens[mt.Index] {
-					inName = append(inName, idx)
-				}
-			}
-			m.filtered = append(m.filtered, scored{cmd: m.all[mt.Index], matched: inName})
-		}
-	}
-
-	if m.cursor >= len(m.filtered) {
-		m.cursor = max(0, len(m.filtered)-1)
+	return pickerModel{
+		mode:       mode,
+		ctx:        ctx,
+		stage:      stageActions,
+		actions:    actions,
+		actionList: newFuzzyList("Type to filter…", items),
 	}
 }
 
@@ -111,8 +94,8 @@ func (m pickerModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-// Update handles key presses and window-size changes. Navigation keys move the
-// cursor, enter selects, esc/ctrl+c cancels, and any other key edits the query.
+// Update routes key presses to the handler for the current stage and forwards
+// everything else (window sizes, the blink tick) to the active input.
 func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -121,38 +104,129 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc":
-			m.quitting = true
-			return m, tea.Quit
-		case "enter":
-			if len(m.filtered) > 0 {
-				c := m.filtered[m.cursor].cmd
-				m.chosen = &c
-			}
-			return m, tea.Quit
-		case "up", "ctrl+p":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-			return m, nil
-		case "down", "ctrl+n":
-			if m.cursor < len(m.filtered)-1 {
-				m.cursor++
-			}
-			return m, nil
+		switch m.stage {
+		case stageActions:
+			return m.updateActions(msg)
+		case stageSelect:
+			return m.updateSelect(msg)
+		case stageForm:
+			return m.updateForm(msg)
 		}
 	}
 
-	// Anything else edits the query, after which we re-filter the list.
-	var cmd tea.Cmd
-	m.input, cmd = m.input.Update(msg)
-	m.filter()
+	return m.forwardToInput(msg)
+}
+
+// updateActions handles keys while choosing an action. Selecting a plain command
+// quits so it can run; selecting a select/form action advances to the matching
+// input stage.
+func (m pickerModel) updateActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "esc":
+		m.quitting = true
+		return m, tea.Quit
+	case "up", "ctrl+p":
+		m.actionList.moveUp()
+		return m, nil
+	case "down", "ctrl+n":
+		m.actionList.moveDown()
+		return m, nil
+	case "enter":
+		idx := m.actionList.selectedIndex()
+		if idx < 0 {
+			return m, nil
+		}
+		a := m.actions[idx]
+		switch a.effectiveType() {
+		case TypeSelect:
+			m.current = &a
+			m.optionList = newFuzzyList("Pick an option…", optionItems(a.Options))
+			m.stage = stageSelect
+			return m, textinput.Blink
+		case TypeForm:
+			m.current = &a
+			m.formInput = newFormInput(a.Form)
+			m.stage = stageForm
+			return m, textinput.Blink
+		default: // TypeCommand
+			m.chosen = &a
+			return m, tea.Quit
+		}
+	}
+
+	cmd := m.actionList.editQuery(msg)
 	return m, cmd
 }
 
-// View renders the title bar, query line, match count, result list, and footer
-// hints.
+// updateSelect handles keys while choosing an option for a select action. esc
+// returns to the action list; enter records the chosen value and quits.
+func (m pickerModel) updateSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit
+	case "esc":
+		m.current = nil
+		m.stage = stageActions
+		return m, textinput.Blink
+	case "up", "ctrl+p":
+		m.optionList.moveUp()
+		return m, nil
+	case "down", "ctrl+n":
+		m.optionList.moveDown()
+		return m, nil
+	case "enter":
+		idx := m.optionList.selectedIndex()
+		if idx < 0 {
+			return m, nil
+		}
+		m.value = m.current.Options[idx].resolvedValue()
+		m.chosen = m.current
+		return m, tea.Quit
+	}
+
+	cmd := m.optionList.editQuery(msg)
+	return m, cmd
+}
+
+// updateForm handles keys while entering text for a form action. esc returns to
+// the action list; enter records the entered string and quits.
+func (m pickerModel) updateForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit
+	case "esc":
+		m.current = nil
+		m.stage = stageActions
+		return m, textinput.Blink
+	case "enter":
+		m.value = strings.TrimSpace(m.formInput.Value())
+		m.chosen = m.current
+		return m, tea.Quit
+	}
+
+	var cmd tea.Cmd
+	m.formInput, cmd = m.formInput.Update(msg)
+	return m, cmd
+}
+
+// forwardToInput passes a non-key message to whichever input is active so the
+// cursor keeps blinking and text keeps flowing in every stage.
+func (m pickerModel) forwardToInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch m.stage {
+	case stageActions:
+		cmd = m.actionList.editQuery(msg)
+	case stageSelect:
+		cmd = m.optionList.editQuery(msg)
+	case stageForm:
+		m.formInput, cmd = m.formInput.Update(msg)
+	}
+	return m, cmd
+}
+
+// View renders the screen for the current stage.
 func (m pickerModel) View() string {
 	if m.quitting {
 		return ""
@@ -160,105 +234,102 @@ func (m pickerModel) View() string {
 
 	var b strings.Builder
 
-	// Title bar.
-	b.WriteString(titleStyle.Render("⚡ Quick Actions"))
-	b.WriteString("\n\n")
-
-	// Query line and match count.
-	b.WriteString(promptStyle.Render("❯ "))
-	b.WriteString(m.input.View())
-	b.WriteString("   ")
-	b.WriteString(countStyle.Render(fmt.Sprintf("%d/%d", len(m.filtered), len(m.all))))
-	b.WriteString("\n\n")
-
-	// Results.
-	if len(m.filtered) == 0 {
-		b.WriteString(descStyle.Render("  no matching commands"))
+	switch m.stage {
+	case stageSelect:
+		b.WriteString(titleStyle.Render(m.current.Name))
+		b.WriteString("\n\n")
+		b.WriteString(m.optionList.view("no matching options"))
 		b.WriteString("\n")
-	}
-	for i, s := range m.filtered {
-		selected := i == m.cursor
-		if selected {
-			b.WriteString(barStyle.Render("▌ "))
-		} else {
-			b.WriteString("  ")
+		b.WriteString(footerStyle.Render("↑/↓ move • enter select • esc back"))
+
+	case stageForm:
+		b.WriteString(titleStyle.Render(m.current.Name))
+		b.WriteString("\n\n")
+		prompt := m.current.Form.Prompt
+		if prompt == "" {
+			prompt = "Enter a value"
 		}
-		b.WriteString(highlightName(s.cmd.Name, s.matched, selected))
-		b.WriteString("  ")
-		b.WriteString(descStyle.Render(s.cmd.Description))
+		b.WriteString(descStyle.Render(prompt))
 		b.WriteString("\n")
-	}
+		b.WriteString(promptStyle.Render("❯ "))
+		b.WriteString(m.formInput.View())
+		b.WriteString("\n\n")
+		b.WriteString(footerStyle.Render("enter submit • esc back"))
 
-	// Footer.
-	b.WriteString("\n")
-	b.WriteString(footerStyle.Render("↑/↓ move • enter run • esc cancel"))
+	default: // stageActions
+		b.WriteString(titleStyle.Render(m.mode.Title))
+		b.WriteString("\n\n")
+		b.WriteString(m.actionList.view("no matching actions"))
+		b.WriteString("\n")
+		b.WriteString(footerStyle.Render("↑/↓ move • enter run • esc cancel"))
+	}
 
 	return b.String()
 }
 
-// highlightName renders a command name with the fuzzy-matched characters
-// emphasized. matched holds byte indexes into the name string (the names are
-// ASCII, so byte and rune indexes coincide).
-func highlightName(name string, matched []int, selected bool) string {
-	base := nameStyle
-	if selected {
-		base = nameSelStyle
-	}
-	if len(matched) == 0 {
-		return base.Render(name)
-	}
-
-	set := make(map[int]bool, len(matched))
-	for _, idx := range matched {
-		set[idx] = true
-	}
-
-	var b strings.Builder
-	for i, r := range name {
-		if set[i] {
-			b.WriteString(matchStyle.Render(string(r)))
-		} else {
-			b.WriteString(base.Render(string(r)))
+// optionItems turns a select action's options into list rows. The value is shown
+// as a dim description only when it differs from the label, so a plain list of
+// values stays uncluttered.
+func optionItems(options []Option) []listItem {
+	items := make([]listItem, len(options))
+	for i, o := range options {
+		desc := ""
+		if o.Value != "" && o.Value != o.Label {
+			desc = o.Value
 		}
+		items[i] = listItem{name: o.Label, desc: desc}
 	}
-	return b.String()
+	return items
 }
 
-// runPicker renders the fuzzy-finder TUI, runs the selected command, and then
-// closes its own herdr pane so focus returns to the pane it was launched from.
-// args[0], when present, is the pane id to close; it falls back to
-// HERDR_PANE_ID.
-func runPicker(args []string) {
-	selfPane := ""
-	if len(args) > 0 {
-		selfPane = args[0]
+// newFormInput builds the text field for a form action, applying its optional
+// placeholder.
+func newFormInput(form FormConfig) textinput.Model {
+	ti := textinput.New()
+	ti.Prompt = ""
+	ti.Placeholder = form.Placeholder
+	if ti.Placeholder == "" {
+		ti.Placeholder = "Type a value…"
 	}
-	if selfPane == "" {
-		selfPane = os.Getenv("HERDR_PANE_ID")
+	ti.Focus()
+	return ti
+}
+
+// runPicker loads the mode's actions, renders the fuzzy-finder TUI, runs the
+// chosen action with the gathered context, and then closes its own herdr pane so
+// focus returns to the pane it was launched from. selfPane is the pane id to
+// close on exit.
+func runPicker(mode Mode, ctx RunContext, selfPane string) {
+	actions, err := loadActions(mode)
+	if err != nil {
+		// Leave the pane open so the user can read the config error.
+		errExit(err)
 	}
 
-	p := tea.NewProgram(newPickerModel(), tea.WithAltScreen())
+	if len(actions) == 0 {
+		dir, _ := modeConfigDir(mode)
+		fmt.Fprintf(os.Stderr, "herdr-plus: no actions found in %s\n", dir)
+		closeSelf(selfPane)
+		return
+	}
+
+	p := tea.NewProgram(newPickerModel(mode, ctx, actions), tea.WithAltScreen())
 	result, err := p.Run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "herdr-plus:", err)
 	}
 
-	// Run the chosen command before tearing down the pane. "open <url>" returns
-	// as soon as the URL is handed to the browser, so this does not block.
+	// Run the chosen action before tearing down the pane. The context carries the
+	// working directory and session metadata; we fill in the resolved Value.
 	if m, ok := result.(pickerModel); ok && m.chosen != nil {
-		runCommand(m.chosen.Run)
+		runCtx := ctx
+		runCtx.Value = m.value
+		if err := m.chosen.run(runCtx); err != nil {
+			fmt.Fprintln(os.Stderr, "herdr-plus: action failed:", err)
+		}
 	}
 
 	closeSelf(selfPane)
-}
-
-// runCommand executes a quick action's shell command. The command is run
-// through the shell so future actions can use arguments, pipes, and the like.
-func runCommand(cmdline string) {
-	cmd := exec.Command("sh", "-c", cmdline)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	_ = cmd.Run()
 }
 
 // closeSelf asks herdr to close the picker's pane. Failures are ignored: if we

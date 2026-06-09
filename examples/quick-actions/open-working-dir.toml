@@ -1,0 +1,22 @@
+# A command action that uses a context variable. The command is a Go
+# text/template rendered against the run context, so {{.WorkDir}} expands to the
+# directory you launched herdr-plus from. Other variables you can use:
+#
+#   {{.WorkDir}}        the working directory you launched from
+#   {{.SessionTitle}}   the herdr workspace label (e.g. the repo name)
+#   {{.SessionId}}      the herdr workspace id
+#   {{.TabLabel}}       the herdr tab label
+#   {{.PaneId}}         the pane herdr-plus was launched from
+#   {{.WorkspaceLabel}} {{.WorkspaceId}} {{.TabId}} {{.TerminalId}}
+#   {{.Agent}}          the agent running in the pane, if any
+#   {{.AgentSessionId}} that agent's session id
+#   {{.Home}}           your home directory
+#   {{.Value}}          the selected option / entered text (select & form only)
+#
+# The same values are also exported to the command's environment as
+# HERDR_PLUS_WORKDIR, HERDR_PLUS_SESSION_TITLE, and so on.
+
+name = "Reveal Working Dir"
+description = "Open the launch directory in Finder"
+type = "command"
+command = "open {{.WorkDir}}"
