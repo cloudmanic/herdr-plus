@@ -53,6 +53,15 @@ jobs:
         with:
           go-version: stable
 
+      # Set the git identity once for the whole job. Both the version-bump
+      # commit and the annotated release tag need it, and the bump step is
+      # skipped on a hand-edited (non-auto-bumped) release — so configuring it
+      # here keeps tagging working on every path.
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       # Decide whether to auto-bump or accept a hand-edited version.
       - name: Determine version
         id: version
@@ -91,8 +100,6 @@ jobs:
 
           sed -i -E "s/(const Version = )\"[0-9]+\.[0-9]+\.[0-9]+\"/\1\"$NEW\"/" internal/version/version.go
 
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add internal/version/version.go
           git commit -m "Release v$NEW [skip ci]"
           git push origin HEAD:main
