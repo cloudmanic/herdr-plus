@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/cloudmanic/herdr-plus/internal/version"
 )
 
 // main dispatches between the two modes of the binary. The bare binary
@@ -26,6 +28,9 @@ func main() {
 			return
 		case "install":
 			runInstallCmd(os.Args[2:])
+			return
+		case "version", "--version", "-v", "-V":
+			fmt.Println("herdr-plus", version.Version)
 			return
 		}
 	}

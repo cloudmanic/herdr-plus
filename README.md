@@ -17,7 +17,33 @@ Pick a mode with `--mode=<slug>`. With no flag, the default mode runs.
 ```bash
 herdr-plus                       # default mode (quick-actions)
 herdr-plus --mode=quick-actions  # explicit
+herdr-plus version               # print the version and exit
 ```
+
+## Installing
+
+**Homebrew** (the repo is its own tap):
+
+```bash
+brew tap cloudmanic/herdr-plus https://github.com/cloudmanic/herdr-plus
+brew install cloudmanic/herdr-plus/herdr-plus
+```
+
+**Install script** (Linux/macOS, no Homebrew):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cloudmanic/herdr-plus/main/install.sh | sh
+```
+
+**From source:**
+
+```bash
+make build && make install-bin
+```
+
+Every merge to `main` auto-bumps the patch version and cuts a new GitHub Release
+with cross-compiled binaries; `brew upgrade` / re-running the install script
+pulls the latest.
 
 The bare command opens a focused split beneath your current pane and runs the
 picker there. Choose an action, and the pane closes itself when the action runs.

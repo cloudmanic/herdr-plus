@@ -1,0 +1,89 @@
+#
+# Date: 2026-06-09
+# Author: Spicer Matthews (spicer@cloudmanic.com)
+# Copyright: 2026 Cloudmanic Labs, LLC. All rights reserved.
+#
+# GoReleaser config for herdr-plus. Driven by .github/workflows/release.yml on
+# every push to main: that workflow bumps internal/version/version.go and tags
+# v<x.y.z>, then invokes `goreleaser release --clean`. GoReleaser then
+# cross-compiles the binary, archives it, attaches it to a GitHub Release, and
+# pushes an updated Homebrew formula into Formula/ in this same repo.
+
+version: 2
+
+project_name: herdr-plus
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: herdr-plus
+    binary: herdr-plus
+    main: .
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    # Skip windows/arm64 — less common, and we'd rather not ship binaries we
+    # can't easily test. Add it back if there's demand.
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE*
+      - README*
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^test:"
+      - "Merge pull request"
+      - "Merge branch"
+
+# Homebrew formula committed straight back into this repo under Formula/.
+# Users install via:
+#
+#   brew tap cloudmanic/herdr-plus https://github.com/cloudmanic/herdr-plus
+#   brew install cloudmanic/herdr-plus/herdr-plus
+#
+# Because the formula lives in the same repo as the source, the default
+# GITHUB_TOKEN the workflow already holds is enough to push it — no PAT, no
+# separate tap repo. The [skip ci] marker on the formula-update commit stops the
+# new push from triggering a second release run.
+brews:
+  - name: herdr-plus
+    repository:
+      owner: cloudmanic
+      name: herdr-plus
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    directory: Formula
+    commit_msg_template: "Update {{ .ProjectName }} brew formula to {{ .Tag }} [skip ci]"
+    homepage: "https://github.com/cloudmanic/herdr-plus"
+    description: "herdr-plus — an add-on platform for the herdr terminal multiplexer."
+    license: "MIT"
+    commit_author:
+      name: github-actions[bot]
+      email: 41898282+github-actions[bot]@users.noreply.github.com
+    install: |
+      bin.install "herdr-plus"
+    test: |
+      assert_path_exists bin/"herdr-plus"
