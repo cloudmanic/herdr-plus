@@ -1,0 +1,9 @@
+# Compiled binary (same name as the module; anchored to repo root)
+/herdr-quick-actions
+
+# Go build & test artifacts
+*.test
+*.out
+
+# Editor / OS cruft
+.DS_Store
