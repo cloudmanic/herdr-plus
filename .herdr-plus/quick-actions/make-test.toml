@@ -1,0 +1,6 @@
+# A second project-local action, to show more than one project entry grouped
+# together. Same format as the global actions; runs in the repo root.
+
+name = "make test"
+description = "Run the herdr-plus test suite (make test)"
+command = "make test"

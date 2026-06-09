@@ -50,6 +50,22 @@ func modeConfigDir(mode Mode) (string, error) {
 	return filepath.Join(base, mode.Slug), nil
 }
 
+// projectConfigDirName is the directory a repo adds at its root to ship its own
+// herdr-plus config. It mirrors the global config layout: actions for a mode live
+// in <repo>/.herdr-plus/<mode-slug>/.
+const projectConfigDirName = ".herdr-plus"
+
+// projectConfigDir returns the project-local config directory for a mode within
+// workDir, e.g. <workDir>/.herdr-plus/quick-actions. It returns "" when workDir
+// is unknown. Unlike the global dir, it is never created or seeded: project
+// config is opt-in and read only when the repo actually provides it.
+func projectConfigDir(mode Mode, workDir string) string {
+	if workDir == "" {
+		return ""
+	}
+	return filepath.Join(workDir, projectConfigDirName, mode.Slug)
+}
+
 // ensureModeConfig makes sure a mode's config directory exists and returns its
 // path. The very first time (when the directory does not yet exist) it seeds the
 // directory with the embedded example actions. Once the directory exists it is
@@ -100,17 +116,33 @@ func seedExamples(mode Mode, destDir string) error {
 }
 
 // loadActions reads, parses, and validates every *.toml action in the mode's
-// config directory, returning them sorted by name. A malformed or invalid file
-// fails the whole load with a message naming the offending files, so config
-// mistakes surface loudly instead of an action silently going missing.
+// global config directory, returning them sorted by name and tagged as global. A
+// malformed or invalid file fails the whole load with a message naming the
+// offending files, so config mistakes surface loudly instead of an action
+// silently going missing.
 func loadActions(mode Mode) ([]Action, error) {
 	dir, err := ensureModeConfig(mode)
 	if err != nil {
 		return nil, err
 	}
+	return loadActionsFromDir(dir, originGlobal)
+}
+
+// loadActionsFromDir reads, parses, and validates every *.toml action in dir,
+// tagging each with origin and returning them sorted by name. A directory that
+// does not exist yields no actions and no error, so an absent project config dir
+// simply contributes nothing. A malformed or invalid file fails the whole load
+// with a message naming the offending files and their directory.
+func loadActionsFromDir(dir string, origin actionOrigin) ([]Action, error) {
+	if dir == "" {
+		return nil, nil
+	}
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -128,6 +160,7 @@ func loadActions(mode Mode) ([]Action, error) {
 			continue
 		}
 		a.source = e.Name()
+		a.origin = origin
 		if err := a.validate(); err != nil {
 			problems = append(problems, "  "+err.Error())
 			continue
@@ -141,4 +174,23 @@ func loadActions(mode Mode) ([]Action, error) {
 
 	sort.Slice(actions, func(i, j int) bool { return actions[i].Name < actions[j].Name })
 	return actions, nil
+}
+
+// loadPickerActions loads the actions to show in the picker: the mode's global
+// actions plus any project-local actions found in workDir's .herdr-plus/<mode>/
+// directory. Project actions come first and are tagged originProject, globals
+// originGlobal, so the picker can group them. A repo without a .herdr-plus dir
+// just yields the global set, exactly as before this feature existed.
+func loadPickerActions(mode Mode, workDir string) ([]Action, error) {
+	global, err := loadActions(mode)
+	if err != nil {
+		return nil, err
+	}
+
+	project, err := loadActionsFromDir(projectConfigDir(mode, workDir), originProject)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(project, global...), nil
 }

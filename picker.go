@@ -75,19 +75,59 @@ type pickerModel struct {
 	quitting bool
 }
 
-// newPickerModel builds the initial TUI state showing every action.
+// newPickerModel builds the initial TUI state showing every action. Actions are
+// partitioned by origin so project-local actions sort and render ahead of the
+// global ones; m.actions is stored in that same project-then-global order so each
+// list row's ref indexes straight back into it.
 func newPickerModel(mode Mode, ctx RunContext, actions []Action) pickerModel {
-	items := make([]listItem, len(actions))
-	for i, a := range actions {
-		items[i] = listItem{name: a.Name, desc: a.Description, selectable: true, ref: i}
+	var project, global []Action
+	for _, a := range actions {
+		if a.origin == originProject {
+			project = append(project, a)
+		} else {
+			global = append(global, a)
+		}
 	}
+
+	ordered := make([]Action, 0, len(actions))
+	ordered = append(ordered, project...)
+	ordered = append(ordered, global...)
+
 	return pickerModel{
 		mode:       mode,
 		ctx:        ctx,
 		stage:      stageActions,
-		actions:    actions,
-		actionList: newFuzzyList("Type to filter…", items),
+		actions:    ordered,
+		actionList: newFuzzyList("Type to filter…", actionListItems(project, global)),
 	}
+}
+
+// actionListItems turns the project and global actions into picker rows. When
+// both groups are present it brackets each with a non-selectable "Project" /
+// "Global" heading so the origin of every action is clear; when only one group
+// exists it emits a plain, ungrouped list so a repo without project actions looks
+// exactly as it did before. Each selectable row's ref is its index into the
+// concatenated project++global slice, matching the order newPickerModel stores in
+// m.actions.
+func actionListItems(project, global []Action) []listItem {
+	grouped := len(project) > 0 && len(global) > 0
+	items := make([]listItem, 0, len(project)+len(global)+2)
+
+	if grouped {
+		items = append(items, listItem{name: "Project"})
+	}
+	for i, a := range project {
+		items = append(items, listItem{name: a.Name, desc: a.Description, selectable: true, ref: i})
+	}
+
+	if grouped {
+		items = append(items, listItem{name: "Global"})
+	}
+	for j, a := range global {
+		items = append(items, listItem{name: a.Name, desc: a.Description, selectable: true, ref: len(project) + j})
+	}
+
+	return items
 }
 
 // Init implements tea.Model and starts the cursor blinking.
@@ -304,7 +344,7 @@ func newFormInput(form FormConfig) textinput.Model {
 // focus returns to the pane it was launched from. selfPane is the pane id to
 // close on exit.
 func runPicker(mode Mode, ctx RunContext, selfPane string) {
-	actions, err := loadActions(mode)
+	actions, err := loadPickerActions(mode, ctx.WorkDir)
 	if err != nil {
 		// Leave the pane open so the user can read the config error.
 		errExit(err)
