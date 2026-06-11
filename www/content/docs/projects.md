@@ -49,6 +49,7 @@ Here is a complete, annotated example covering every field:
 # Top-level project fields.
 name = "Options Cafe"                                      # required: the workspace label
 description = "The main options.cafe monorepo"             # shown in the browser
+group = "Cloudmanic"                                       # optional: cluster a client's projects under a heading
 working_dir = "~/Development/options-cafe/options.cafe"    # ~ and $VARS expand
 
 # Tabs open in file order. The FIRST tab reuses the workspace's root tab; the
@@ -74,6 +75,12 @@ text you fuzzy-find in the browser.
 ### `description`
 
 Optional free text shown next to the name in the browser.
+
+### `group`
+
+Optional. A label that clusters related projects in the browser — see
+[Grouping projects by client](#grouping-projects-by-client). It has no effect on
+the workspace that opens; it only changes how the browser is laid out.
 
 ### `working_dir`
 
@@ -139,6 +146,33 @@ empty shell.
 
 A tab may declare at most 4 panes; more than that is a load-time error.
 
+## Grouping projects by client
+
+Give a project a [`group`](#group) and the browser clusters projects that share
+that label under a heading. This is built for the common case where **one client
+has several projects** — tag each with the client's name and they sit together:
+
+```toml
+name = "Acme — Web"
+group = "Acme Co."
+working_dir = "~/Clients/acme/web"
+
+[[tabs]]
+name = "editor"
+command = "spiceedit"
+```
+
+How the browser lays out:
+
+- **Headings appear only when used.** If no project sets a `group`, the browser
+  is a plain, flat list exactly as it was before — nothing changes.
+- **Named groups come first**, in case-insensitive alphabetical order by group
+  name. A client's projects keep their usual name order under the heading.
+- **Group-less projects** fall under a catch-all **Ungrouped** heading at the
+  bottom, so a mix of grouped and ungrouped projects is always clearly labeled.
+- **Search is unchanged.** Start typing and the headings drop away — you filter a
+  single ranked list across every project, grouped or not.
+
 ## Adding and removing projects
 
 The model is one file per project:
@@ -147,9 +181,11 @@ The model is one file per project:
   `~/.config/herdr-plus/projects/`.
 - **Remove a project** — delete its file.
 
-Projects are sorted by name in the browser. A malformed or invalid project file
-fails the whole load with a message naming the offending file, so a config
-mistake surfaces loudly instead of a project silently going missing.
+Projects are sorted by name in the browser, and clustered under group headings
+when any project sets a [`group`](#grouping-projects-by-client). A malformed or
+invalid project file fails the whole load with a message naming the offending
+file, so a config mistake surfaces loudly instead of a project silently going
+missing.
 
 ## See also
 

@@ -58,6 +58,28 @@ Tabs open in file order; the first tab reuses the workspace's root tab and the r
 are created behind it. A tab with no `command` is just an empty shell. With no
 project files yet, control mode shows an onboarding screen explaining all of this.
 
+### Grouping projects
+
+A project may set an optional `group` — a label that clusters related projects in
+the browser. It is handy when one client has several projects:
+
+```toml
+name = "Acme — Web"
+group = "Acme Co."
+working_dir = "~/Clients/acme/web"
+
+[[tabs]]
+name = "editor"
+command = "spiceedit"
+```
+
+Projects that share a `group` are shown together under that heading, in
+case-insensitive alphabetical order by group name. Any project without a `group`
+falls under a catch-all **Ungrouped** heading at the bottom. Grouping only kicks
+in when at least one project sets a `group` — if none do, the browser stays a
+plain, heading-less list exactly as before. Filtering is unchanged: start typing
+and the headings drop away to a single ranked list.
+
 ### Split panes within a tab
 
 A tab can hold up to **4 panes**. Instead of a single `command`, give the tab

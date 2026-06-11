@@ -7,6 +7,7 @@
 package main
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -73,18 +74,105 @@ type controlModel struct {
 	quitting bool
 }
 
+// ungroupedHeading labels the catch-all bucket for projects that declare no
+// group. It is only ever shown when at least one other project does declare one;
+// when no project sets a group the browser has no headings at all.
+const ungroupedHeading = "Ungrouped"
+
 // newControlModel builds the initial TUI state over the loaded projects.
 // projectsDir is shown in the empty-state so the user knows where to add files.
+// Projects are arranged into group headings (see orderProjectsByGroup) and the
+// resulting display order is stored on the model so each list row's ref indexes
+// straight back into it.
 func newControlModel(projects []Project, projectsDir string) controlModel {
-	items := make([]listItem, len(projects))
-	for i, p := range projects {
-		items[i] = listItem{name: p.Name, desc: p.Description, selectable: true, ref: i}
-	}
+	ordered, items := orderProjectsByGroup(projects)
 	return controlModel{
-		projects:    projects,
+		projects:    ordered,
 		list:        newFuzzyList("Type to filter projects…", items),
 		projectsDir: projectsDir,
 	}
+}
+
+// orderProjectsByGroup arranges projects for the browser and returns them in
+// display order alongside the matching list rows. Grouping engages only when at
+// least one project declares a group: named groups come first in
+// case-insensitive alphabetical order, each introduced by a non-selectable
+// heading row, followed by any group-less projects under an "Ungrouped" heading.
+// Within every group the input order (name-sorted by loadProjects) is preserved,
+// so a client's projects stay alphabetized under their heading. Each selectable
+// row's ref indexes into the returned slice, so the caller stores that slice and
+// looks a project up by ref directly. When no project declares a group, the input
+// is returned unchanged with a plain, heading-less list — the browser then looks
+// exactly as it did before this feature. Filtering is unaffected: the fuzzyList
+// drops heading rows while a query is active, collapsing back to one ranked list.
+func orderProjectsByGroup(projects []Project) ([]Project, []listItem) {
+	// Does anything opt into grouping? If not, emit a plain list whose refs index
+	// straight into the unchanged input.
+	grouped := false
+	for _, p := range projects {
+		if strings.TrimSpace(p.Group) != "" {
+			grouped = true
+			break
+		}
+	}
+	if !grouped {
+		items := make([]listItem, len(projects))
+		for i, p := range projects {
+			items[i] = listItem{name: p.Name, desc: p.Description, selectable: true, ref: i}
+		}
+		return projects, items
+	}
+
+	// Partition into named groups (first-seen order recorded for sorting) plus the
+	// group-less remainder, preserving each project's incoming name order.
+	byGroup := map[string][]Project{}
+	var groupNames []string
+	var ungrouped []Project
+	for _, p := range projects {
+		g := strings.TrimSpace(p.Group)
+		if g == "" {
+			ungrouped = append(ungrouped, p)
+			continue
+		}
+		if _, seen := byGroup[g]; !seen {
+			groupNames = append(groupNames, g)
+		}
+		byGroup[g] = append(byGroup[g], p)
+	}
+
+	// Sort group headings case-insensitively, falling back to the raw label so two
+	// groups differing only in case still order deterministically.
+	sort.SliceStable(groupNames, func(i, j int) bool {
+		li, lj := strings.ToLower(groupNames[i]), strings.ToLower(groupNames[j])
+		if li == lj {
+			return groupNames[i] < groupNames[j]
+		}
+		return li < lj
+	})
+
+	ordered := make([]Project, 0, len(projects))
+	items := make([]listItem, 0, len(projects)+len(groupNames)+1)
+
+	// Emit each named group's heading followed by its projects; ref tracks the
+	// running index into ordered so every row points back at its project.
+	for _, name := range groupNames {
+		items = append(items, listItem{name: name})
+		for _, p := range byGroup[name] {
+			items = append(items, listItem{name: p.Name, desc: p.Description, selectable: true, ref: len(ordered)})
+			ordered = append(ordered, p)
+		}
+	}
+
+	// Group-less projects trail under the catch-all heading.
+	if len(ungrouped) > 0 {
+		items = append(items, listItem{name: ungroupedHeading})
+		for _, p := range ungrouped {
+			items = append(items, listItem{name: p.Name, desc: p.Description, selectable: true, ref: len(ordered)})
+			ordered = append(ordered, p)
+		}
+	}
+
+	return ordered, items
 }
 
 // Init implements tea.Model and starts the cursor blinking.

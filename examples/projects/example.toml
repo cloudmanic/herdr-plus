@@ -8,6 +8,7 @@
 
 name = "Options Cafe"
 description = "The main options.cafe monorepo"
+group = "Cloudmanic"                                      # optional: cluster a client's projects under a heading
 working_dir = "~/Development/options-cafe/options.cafe"   # ~ and $VARS expand
 
 [[tabs]]

@@ -75,10 +75,20 @@ func (t ProjectTab) effectivePanes() []ProjectPane {
 // Tabs (in order) running each tab's startup command. Projects replace the
 // hand-written herdr-workspaces shell scripts.
 type Project struct {
-	Name        string       `toml:"name"`
-	Description string       `toml:"description"`
-	WorkingDir  string       `toml:"working_dir"`
-	Tabs        []ProjectTab `toml:"tabs"`
+	Name        string `toml:"name"`
+	Description string `toml:"description"`
+
+	// Group is an optional label that clusters projects in the control-mode
+	// browser. Projects sharing a Group are shown together under a heading — for
+	// example, every project belonging to one client. It is purely a browsing aid
+	// and has no effect on the workspace that opens. Leaving it empty drops the
+	// project into the catch-all "Ungrouped" heading when any other project sets a
+	// Group; when no project sets one, the browser stays a plain, heading-less
+	// list exactly as before.
+	Group string `toml:"group"`
+
+	WorkingDir string       `toml:"working_dir"`
+	Tabs       []ProjectTab `toml:"tabs"`
 
 	// source is the file the project was loaded from, used only for error
 	// messages. It is not part of the on-disk format.
