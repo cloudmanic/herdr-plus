@@ -42,6 +42,7 @@
   --color-accent:      #2e7de9;  /* primary brand blue */
   --color-accent-ink:  #1b5fc4;  /* accent text on light bg (AA) */
   --color-accent-soft: #dceafb;  /* accent tint fills */
+  --color-brand:       #334155;  /* logo lockup (mark + wordmark) — neutral slate */
   --color-green:       #587539;
   --color-green-soft:  #dcead0;
   --color-yellow:      #8c6c3e;
@@ -79,6 +80,7 @@
     --color-accent:      #7aa2f7;
     --color-accent-ink:  #a9c2ff;
     --color-accent-soft: #243049;
+    --color-brand:       #cbd5e1;  /* logo lockup — light slate for dark bg */
     --color-green:       #9ece6a;
     --color-green-soft:  #25332a;
     --color-yellow:      #e0af68;
@@ -111,6 +113,7 @@
   --color-accent:      #7aa2f7;
   --color-accent-ink:  #a9c2ff;
   --color-accent-soft: #243049;
+  --color-brand:       #cbd5e1;  /* logo lockup — light slate for dark bg */
   --color-green:       #9ece6a;
   --color-green-soft:  #25332a;
   --color-yellow:      #e0af68;

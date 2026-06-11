@@ -1,8 +1,14 @@
-{{- /* brand.html — logo badge + "herdr plus" wordmark. Param: .size ("sm"|"md") */ -}}
+{{- /* brand.html — "herdr" wordmark + a hairline plus glyph that reads as the
+       "+" of herdr+. Mark + wordmark share one cohesive, theme-aware color
+       (--color-brand) so the whole lockup adapts between light/dark.
+       Param: .size ("sm"|"md") */ -}}
 {{- $size := .size | default "md" -}}
-{{- $badge := cond (eq $size "sm") "h-7 w-7" "h-8 w-8" -}}
+{{- $mark := cond (eq $size "sm") "h-[22px] w-[22px]" "h-[26px] w-[26px]" -}}
 {{- $text := cond (eq $size "sm") "text-lg" "text-xl" -}}
-<span class="inline-flex items-center gap-2.5">
-  <img src="{{ "images/logo.svg" | relURL }}" alt="" width="32" height="32" class="{{ $badge }} rounded-[9px]">
-  <span class="font-mono {{ $text }} font-semibold tracking-tight" style="color:var(--color-ink)">herdr<span style="color:var(--color-accent-ink)"> plus</span></span>
+<span class="inline-flex items-center gap-[1px]" style="color:var(--color-brand)">
+  <span class="font-sans {{ $text }} font-semibold tracking-[-0.02em] leading-none">herdr</span>
+  {{- /* hairline plus, optically centered, inherits the lockup color via currentColor */ -}}
+  <svg class="{{ $mark }}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <path d="M32 9V55M9 32H55" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+  </svg>
 </span>
