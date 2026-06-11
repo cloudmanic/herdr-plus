@@ -150,30 +150,19 @@
 <!-- ================================================== QUICK ACTIONS -->
 <section id="quick-actions" class="scroll-mt-24 border-y" style="border-color:var(--color-line); background:color-mix(in srgb, var(--color-surface-2) 35%, transparent)">
   <div class="container-x grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-2">
-    <!-- mockup: the picker -->
+    <!-- the real Quick Actions launcher -->
     <div class="order-2 lg:order-1">
-      <div class="terminal">
+      <figure class="terminal">
         <div class="terminal-bar">
           <span class="terminal-dot" style="background:#f7768e"></span>
           <span class="terminal-dot" style="background:#e0af68"></span>
           <span class="terminal-dot" style="background:#9ece6a"></span>
-          <span class="terminal-title">prefix + down</span>
+          <span class="terminal-title">prefix + down — quick actions</span>
         </div>
-        <div class="terminal-body">
-          <div><span class="t-prompt">❯</span> <span class="t-cmd">herdr-plus</span> --mode=quick-actions</div>
-          <div class="mt-3 rounded-lg border p-2" style="border-color:var(--color-term-line)">
-            <div class="t-dim">  search…</div>
-            <div class="mt-1 t-dim text-[11px]">PROJECT</div>
-            <div class="t-out">  make build        <span class="t-dim">make build</span></div>
-            <div class="t-out">  make test         <span class="t-dim">make test</span></div>
-            <div class="mt-1 t-dim text-[11px]">GLOBAL</div>
-            <div class="rounded px-1" style="background:var(--color-accent); color:#fff">▸ Search Google     <span style="opacity:.85">type a query…</span></div>
-            <div class="t-out">  GitHub            <span class="t-dim">open github.com</span></div>
-            <div class="t-out">  Open Repo         <span class="t-dim">pick a repo &amp; open it</span></div>
-          </div>
-          <div class="mt-2 t-dim text-[11px]">↑↓ move · ⏎ run · esc cancel</div>
-        </div>
-      </div>
+        <img src="{{ "images/quick-actions.webp" | relURL }}" width="1240" height="718"
+          loading="lazy" decoding="async" class="block w-full"
+          alt="The herdr-plus Quick Actions launcher: a fuzzy picker listing Project actions (make build, make test) above Global actions (Open GitHub PR, Open GitHub Project, Open Project Board).">
+      </figure>
     </div>
 
     <div class="order-1 lg:order-2">
@@ -215,50 +204,18 @@
       <a href="{{ "docs/projects/" | relURL }}" class="mt-7 inline-flex link-accent">Projects docs {{ partial "icon.html" (dict "name" "arrow-right" "class" "ml-1 h-4 w-4") }}</a>
     </div>
 
-    <!-- mockup: TOML → workspace -->
-    <div class="space-y-4">
-      <div class="terminal">
-        <div class="terminal-bar">
-          <span class="terminal-dot" style="background:#f7768e"></span>
-          <span class="terminal-dot" style="background:#e0af68"></span>
-          <span class="terminal-dot" style="background:#9ece6a"></span>
-          <span class="terminal-title">~/.config/herdr-plus/projects/options-cafe.toml</span>
-        </div>
-        <div class="terminal-body">
-<pre class="!m-0 !border-0 !bg-transparent !p-0" style="font:inherit"><span class="t-key">name</span> = <span class="t-str">"Options Cafe"</span>
-<span class="t-key">working_dir</span> = <span class="t-str">"~/Development/options-cafe"</span>
-
-<span class="t-dim">[[tabs]]</span>
-<span class="t-key">name</span> = <span class="t-str">"claude"</span>
-<span class="t-key">command</span> = <span class="t-str">"claude --chrome"</span>
-
-<span class="t-dim">[[tabs]]</span>
-<span class="t-key">name</span> = <span class="t-str">"server"</span>
-<span class="t-dim">  [[tabs.panes]]</span>
-  <span class="t-key">command</span> = <span class="t-str">"php artisan serve"</span>
-<span class="t-dim">  [[tabs.panes]]</span>
-  <span class="t-key">command</span> = <span class="t-str">"npm run dev"</span>
-  <span class="t-key">split</span> = <span class="t-str">"down"</span></pre>
-        </div>
+    <!-- the real Projects browser, grouped by client -->
+    <figure class="terminal">
+      <div class="terminal-bar">
+        <span class="terminal-dot" style="background:#f7768e"></span>
+        <span class="terminal-dot" style="background:#e0af68"></span>
+        <span class="terminal-dot" style="background:#9ece6a"></span>
+        <span class="terminal-title">prefix + up — projects</span>
       </div>
-
-      <div class="flex justify-center" style="color:var(--color-faint)">{{ partial "icon.html" (dict "name" "arrow-right" "class" "h-5 w-5 rotate-90") }}</div>
-
-      <div class="terminal">
-        <div class="term-tabs">
-          <span class="term-tab is-active">claude</span>
-          <span class="term-tab">lazygit</span>
-          <span class="term-tab">server ×2</span>
-          <span class="term-tab">terminal</span>
-          <span class="term-tab">+</span>
-        </div>
-        <div class="terminal-body !pt-3">
-          <div><span class="t-dim">~/Development/options-cafe</span></div>
-          <div><span class="t-prompt">❯</span> <span class="t-cmd">claude</span> --chrome</div>
-          <div class="t-out">  ✻ Ready. The whole workspace, one keypress away.<span class="cursor"></span></div>
-        </div>
-      </div>
-    </div>
+      <img src="{{ "images/projects.webp" | relURL }}" width="1052" height="1300"
+        loading="lazy" decoding="async" class="block w-full"
+        alt="The herdr-plus Projects browser showing 21 projects grouped by client — King's Loot, Options Cafe, and Remote SQLite — with the remaining projects under an Ungrouped heading.">
+    </figure>
   </div>
 </section>
 
