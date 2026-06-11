@@ -8,14 +8,15 @@
 # Configuration for the public herdr-plus site. Built by the GitHub Actions
 # workflow at .github/workflows/site.yml and deployed to GitHub Pages.
 #
-# baseURL note: until herdrplus.com is purchased and pointed here, the site
-# lives at the GitHub Pages *project* URL, which has a /herdr-plus/ path
-# prefix. Every asset/link in the templates uses Hugo's relURL/.RelPermalink
-# so it survives the subpath. When the custom domain is ready: change baseURL
-# to "https://herdrplus.com/", drop a CNAME file in static/, and redeploy.
+# baseURL: the site is served from the custom domain herdrplus.com via GitHub
+# Pages (with www → apex redirect). The custom domain is published by the
+# CNAME file at www/static/CNAME, which Hugo copies to the site root. Every
+# asset/link in the templates still uses Hugo's relURL/.RelPermalink, so the
+# build also works under the GitHub Pages *project* path
+# (cloudmanic.github.io/herdr-plus/) should the custom domain ever be removed.
 #
 
-baseURL          = "https://cloudmanic.github.io/herdr-plus/"
+baseURL          = "https://herdrplus.com/"
 locale           = "en-US"
 title            = "herdr plus"
 enableRobotsTXT  = true
