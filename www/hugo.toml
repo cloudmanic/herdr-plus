@@ -29,9 +29,9 @@ disableKinds = ["taxonomy", "term", "RSS"]
 
 [params]
   # The one-liner that fills in meta tags, og: tags, and the footer.
-  description = "herdr-plus supercharges herdr with quick actions and projects — an open-source extension platform for the herdr terminal. Free, by Cloudmanic Labs."
+  description = "herdr-plus is a collection of tools that supercharge herdr — quick actions and projects for your terminal. Free and open-source, by Cloudmanic Labs."
   tagline     = "Supercharge herdr."
-  subtagline  = "Quick actions in any tab. Whole workspaces from one file. An open-source extension platform for the herdr terminal."
+  subtagline  = "Quick actions in any tab. Whole workspaces from one file. An open-source extension for the herdr terminal."
 
   # The product-tour video. Paste a YouTube/Vimeo *embed* URL here (e.g.
   # https://www.youtube.com/embed/XXXX) and the hero swaps the animated
