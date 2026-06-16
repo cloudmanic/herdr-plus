@@ -8,7 +8,8 @@
 #   1. Determines the next version. If the pushed commit hand-edited
 #      internal/version/version.go (you bumped major/minor manually), the
 #      workflow uses that version as-is. Otherwise it auto-bumps the patch
-#      number, commits the change back to main with [skip ci], and pushes.
+#      number. Either way it syncs that version into BOTH version.go and
+#      herdr-plugin.toml's `version` field, commits with [skip ci], and pushes.
 #   2. Tags v<x.y.z> and pushes the tag.
 #   3. Runs goreleaser to cross-compile binaries (linux/darwin/windows ×
 #      amd64/arm64), package them, attach them to a GitHub Release, and push
@@ -96,19 +97,30 @@ jobs:
             echo "bumped=true"  >> "$GITHUB_OUTPUT"
           fi
 
-      # Commit the bumped version.go back to main. The [skip ci] marker tells
-      # GitHub Actions not to re-run this workflow (which would loop forever).
-      - name: Commit version bump
-        if: steps.version.outputs.bumped == 'true'
+      # Sync the release version into BOTH files that carry it and commit if
+      # anything changed:
+      #   - internal/version/version.go (printed by `herdr-plus version`)
+      #   - herdr-plugin.toml's `version` field (what herdr shows in the plugin
+      #     install preview and `herdr plugin list`)
+      # This runs on both paths — the auto-bump (version.go was the old value) and
+      # a hand-edited version (version.go already new, but the manifest may still
+      # be stale). The diff guard makes it a no-op when both already match. The
+      # [skip ci] marker stops the push from re-triggering this workflow.
+      - name: Sync version into version.go + manifest
         run: |
           set -euo pipefail
           NEW="${{ steps.version.outputs.version }}"
 
           sed -i -E "s/(const Version = )\"[0-9]+\.[0-9]+\.[0-9]+\"/\1\"$NEW\"/" internal/version/version.go
+          sed -i -E "s/^(version = )\"[0-9]+\.[0-9]+\.[0-9]+\"/\1\"$NEW\"/" herdr-plugin.toml
 
-          git add internal/version/version.go
-          git commit -m "Release v$NEW [skip ci]"
-          git push origin HEAD:main
+          if git diff --quiet internal/version/version.go herdr-plugin.toml; then
+            echo "version.go and herdr-plugin.toml already at v$NEW — nothing to commit."
+          else
+            git add internal/version/version.go herdr-plugin.toml
+            git commit -m "Release v$NEW [skip ci]"
+            git push origin HEAD:main
+          fi
 
       # Always create + push the tag (even when version was hand-edited — that's
       # the whole point of accepting it as-is).
