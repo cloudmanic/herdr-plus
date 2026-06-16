@@ -78,7 +78,7 @@ brews:
     directory: Formula
     commit_msg_template: "Update {{ .ProjectName }} brew formula to {{ .Tag }} [skip ci]"
     homepage: "https://github.com/cloudmanic/herdr-plus"
-    description: "herdr-plus — an add-on platform for the herdr terminal multiplexer."
+    description: "herdr-plus — an extension for the herdr terminal multiplexer."
     license: "MIT"
     commit_author:
       name: github-actions[bot]
