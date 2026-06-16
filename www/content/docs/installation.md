@@ -1,18 +1,62 @@
 ---
 title: "Installation"
-description: "Install herdr-plus via Homebrew, the install.sh one-liner, or from source — with supported platforms, install locations, and upgrades."
+description: "Install herdr-plus as a herdr plugin (recommended), or get the standalone binary via Homebrew, the install.sh one-liner, or from source."
 weight: 20
 ---
 
-herdr-plus is a single static binary. There are three ways to install it:
-Homebrew, the install script, or from source. All of them are free and open
-source.
+herdr-plus ships as a [herdr plugin](https://herdr.dev/docs/plugins/). The
+recommended way to install it is `herdr plugin install`, which registers the
+plugin's actions with herdr. If you'd rather just have the standalone binary on
+your `PATH`, it's also distributed on its own via Homebrew, an install script, or
+from source. All of them are free and open source.
 
-> **Note:** herdr-plus is an add-on for [herdr](https://herdr.dev). Install and
-> set up herdr first — herdr-plus does its work by talking to a running herdr
-> server.
+> **Note:** herdr-plus is an add-on for [herdr](https://herdr.dev) and the plugin
+> needs **herdr ≥ 0.7.0**. Install and set up herdr first — herdr-plus does its
+> work by talking to a running herdr server.
 
-## Homebrew
+## As a herdr plugin (recommended)
+
+herdr clones the repo, runs the manifest's `[[build]]` step to compile the binary
+(it needs a Go toolchain on the machine), and registers the `control` and
+`quick-actions` actions:
+
+```bash
+herdr plugin install cloudmanic/herdr-plus
+```
+
+Confirm it registered, and manage it, with the usual plugin commands:
+
+```bash
+herdr plugin list                                            # is it installed?
+herdr plugin action list --plugin cloudmanic.herdr-plus      # its actions
+herdr plugin uninstall cloudmanic.herdr-plus                 # remove it
+```
+
+To upgrade, re-run `herdr plugin install` so herdr re-clones and rebuilds the
+latest.
+
+### For local development
+
+To work on herdr-plus, build the binary and link your checkout in place so the
+actions have something to run:
+
+```bash
+make build
+herdr plugin link /path/to/herdr-plus
+```
+
+Unlink it with `herdr plugin unlink cloudmanic.herdr-plus`.
+
+Once the plugin is installed, the actions are available from herdr's plugin
+action menu, and you can optionally bind keys — see [Keybindings](../keybindings/).
+
+## Just the binary
+
+If you'd rather have `herdr-plus` on your `PATH` to run directly (handy for
+scripting or debugging the modes outside herdr's action plumbing), the standalone
+binary is distributed on its own. This never touches your keybindings.
+
+### Homebrew
 
 The herdr-plus repository is its own Homebrew tap. Tap it, then install:
 
@@ -27,7 +71,7 @@ To upgrade later:
 brew upgrade cloudmanic/herdr-plus/herdr-plus
 ```
 
-## Install script
+### Install script
 
 A POSIX `sh` installer detects your OS and architecture, downloads the matching
 archive from the latest GitHub Release, extracts the static binary, and drops it
@@ -59,7 +103,7 @@ curl -fsSL https://raw.githubusercontent.com/cloudmanic/herdr-plus/main/install.
 curl -fsSL https://raw.githubusercontent.com/cloudmanic/herdr-plus/main/install.sh | VERSION=v0.0.1 sh
 ```
 
-## From source
+### From source
 
 Clone the [repository](https://github.com/cloudmanic/herdr-plus) and build with
 the Makefile:
@@ -76,7 +120,7 @@ go build -o herdr-plus .
 go test ./...
 ```
 
-## Supported platforms
+### Supported platforms
 
 Releases are cross-compiled for:
 
@@ -86,7 +130,7 @@ Releases are cross-compiled for:
 The install script maps `uname` output onto those tokens and refuses to run on
 anything else, telling you exactly what it detected.
 
-## Where the binary lands
+### Where the binary lands
 
 The install script chooses, in order:
 
@@ -98,7 +142,7 @@ The install script chooses, in order:
 > exact `export PATH=...` line to add to your shell rc. Without that, your shell
 > won't find the `herdr-plus` command.
 
-## Checking the version
+### Checking the version
 
 Confirm what's installed at any time:
 
@@ -109,7 +153,7 @@ herdr-plus version
 (`--version`, `-v`, and `-V` all work too.) It prints `herdr-plus` followed by
 the release version.
 
-## How upgrades work
+### How standalone-binary upgrades work
 
 Every merge to `main` auto-bumps the patch version and cuts a new GitHub Release
 with cross-compiled binaries. To pull the latest:
@@ -120,6 +164,6 @@ with cross-compiled binaries. To pull the latest:
 
 ## Next steps
 
-Once herdr-plus is on your PATH, bind it to a key:
-[Keybindings](../keybindings/), then jump into the
+Once the plugin is installed, optionally bind a key —
+[Keybindings](../keybindings/) — then jump into the
 [Quick Start](../quick-start/).

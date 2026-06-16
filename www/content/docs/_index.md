@@ -9,25 +9,25 @@ source, built by [Cloudmanic Labs](https://github.com/cloudmanic/herdr-plus).
 
 ## The mental model
 
-herdr-plus ships as a single binary. The same binary can run in different
-**modes**, and each mode decides what to do when it talks to herdr. You bind a
-mode to a herdr keybinding, press your prefix plus that key, and the mode springs
-to life inside herdr.
+herdr-plus ships as a [herdr plugin](https://herdr.dev/docs/plugins/). herdr
+registers it from the [`herdr-plugin.toml`](https://github.com/cloudmanic/herdr-plus/blob/main/herdr-plugin.toml)
+manifest and exposes its **modes** as plugin actions you trigger from herdr's
+action menu or a keybinding you choose.
 
 We're in explore mode: the list of modes will grow over time. Today there are
 two.
 
 ## Modes
 
-Pick a mode with `--mode=<slug>`. With no flag, the default mode (`control`)
-runs.
+Each mode is a herdr plugin action under the plugin id `cloudmanic.herdr-plus`.
 
-| Mode | Slug | Default key | What it does |
-|------|------|-------------|--------------|
-| Control | `control` (default) | `prefix+up` | herdr-plus's home base — a full-screen workspace for driving herdr. First feature: **Projects**. |
-| Quick Actions | `quick-actions` | `prefix+down` | A fuzzy launcher: pick an action and run it in a split pane. |
+| Mode | Plugin action | Slug | Recommended key | What it does |
+|------|---------------|------|-----------------|--------------|
+| Control | `cloudmanic.herdr-plus.control` | `control` (default) | `prefix+up` | herdr-plus's home base — a full-screen workspace for driving herdr. First feature: **Projects**. |
+| Quick Actions | `cloudmanic.herdr-plus.quick-actions` | `quick-actions` | `prefix+down` | A fuzzy launcher: pick an action and run it in a split pane. |
 
-Each mode has its own default key, so the two can be installed side by side.
+Bind a key to either action or trigger it from herdr's action menu — the
+recommended keys differ, so the two coexist side by side.
 
 ## Where to start
 

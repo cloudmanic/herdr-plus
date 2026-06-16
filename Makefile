@@ -6,7 +6,7 @@
 
 BINARY := herdr-plus
 
-.PHONY: run build install-bin install-keybind build-linux test test-short coverage tidy clean help site site-dev site-clean
+.PHONY: run build install-bin plugin-link build-linux test test-short coverage tidy clean help site site-dev site-clean
 
 # help is the default target so `make` with no args prints what's available.
 help:
@@ -16,7 +16,7 @@ help:
 	@echo "  make run            Run the launcher (inside a herdr pane)."
 	@echo "  make build          Build the binary into ./bin/$(BINARY)."
 	@echo "  make install-bin    Install ./bin/$(BINARY) into /usr/local/bin."
-	@echo "  make install-keybind Build, then bind the herdr keybinding (prefix+down)."
+	@echo "  make plugin-link    Build, then link this checkout as a herdr plugin (dev)."
 	@echo "  make build-linux    Cross-compile a static linux/amd64 binary."
 	@echo "  make test           Run the full test suite with -race."
 	@echo "  make test-short     Skip slow tests (-short) — quick iteration loop."
@@ -42,10 +42,11 @@ build:
 install-bin: build
 	install -m 0755 bin/$(BINARY) /usr/local/bin/$(BINARY)
 
-# install-keybind builds the binary and registers the herdr keybinding, using
-# the freshly built binary's absolute path.
-install-keybind: build
-	./bin/$(BINARY) install
+# plugin-link builds the binary and links this checkout with herdr as a local
+# development plugin, so its actions run the freshly built ./bin/herdr-plus.
+# Undo with `herdr plugin unlink cloudmanic.herdr-plus`.
+plugin-link: build
+	herdr plugin link $(CURDIR)
 
 # build-linux cross-compiles a fully static linux/amd64 binary.
 build-linux:

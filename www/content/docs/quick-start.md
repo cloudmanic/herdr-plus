@@ -1,58 +1,78 @@
 ---
 title: "Quick Start"
-description: "Go from zero to a working herdr-plus keybinding in four steps: install herdr, install herdr-plus, bind a key, press it."
+description: "Go from zero to a working herdr-plus plugin in four steps: install herdr, install the plugin, bind a key (optional), trigger an action."
 weight: 10
 ---
 
-This is the fastest path from zero to a working herdr-plus keybinding. Four
+This is the fastest path from zero to a working herdr-plus. Four
 steps, a couple of minutes.
 
 ## 1. Make sure herdr is installed and running
 
-herdr-plus is an add-on for [herdr](https://herdr.dev). You need a working herdr
-install first — follow the [herdr install guide](https://herdr.dev) — and you
-need to be running inside a herdr session, because herdr-plus talks to the
-running herdr server over a local socket.
+herdr-plus is an add-on for [herdr](https://herdr.dev) and ships as a herdr
+plugin, so it needs **herdr ≥ 0.7.0**. You need a working herdr install first —
+follow the [herdr install guide](https://herdr.dev) — and you need to be running
+inside a herdr session, because herdr-plus talks to the running herdr server over
+a local socket.
 
 > **Note:** herdr-plus only does something useful from inside herdr. If you run
 > it outside herdr it can't find a pane to work with.
 
-## 2. Install herdr-plus
+## 2. Install the plugin
 
-Pick whichever you prefer. **Homebrew** (the repo is its own tap):
-
-```bash
-brew tap cloudmanic/herdr-plus https://github.com/cloudmanic/herdr-plus
-brew install cloudmanic/herdr-plus/herdr-plus
-```
-
-**Install script** (Linux/macOS, no Homebrew):
+herdr clones the repo, runs the manifest's build step to compile the binary
+(it needs a Go toolchain), and registers the `control` and `quick-actions`
+actions:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cloudmanic/herdr-plus/main/install.sh | sh
+herdr plugin install cloudmanic/herdr-plus
 ```
 
-See [Installation](../installation/) for from-source builds, install-location
-overrides, and how upgrades work.
-
-## 3. Install the keybindings
-
-`herdr-plus install` wires herdr-plus into herdr's `config.toml` as keybindings
-and reloads the running herdr server, so the bindings are live immediately. A
-bare install binds **every mode at once**, each on its own default key:
+Confirm it registered:
 
 ```bash
-herdr-plus install                       # binds prefix+up -> control AND prefix+down -> quick-actions
-herdr-plus install --mode=quick-actions  # bind just quick-actions (prefix+down)
+herdr plugin list
+herdr plugin action list --plugin cloudmanic.herdr-plus
 ```
 
-Each mode claims its own default key, so the two coexist. Override a single
-mode's key with `--key=prefix+a`. See [Keybindings](../keybindings/) for the full
-story.
+See [Installation](../installation/) for local-development linking, the
+standalone binary (Homebrew / install script), and how upgrades work.
 
-## 4. Press your prefix, then the key
+## 3. Bind a key (optional)
 
-In herdr, press your prefix (default `ctrl+b`) followed by the bound key:
+The plugin's actions are already available from herdr's plugin action menu — no
+config needed. For a shortcut, add a `[[keys.command]]` entry to **your** herdr
+config (`~/.config/herdr/config.toml`) with `type = "plugin_action"`. The
+recommended convention binds `prefix+up` to control and `prefix+down` to
+quick-actions:
+
+```toml
+[[keys.command]]
+key = "prefix+up"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.control"
+description = "herdr-plus: control / projects"
+
+[[keys.command]]
+key = "prefix+down"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.quick-actions"
+description = "herdr-plus: quick actions"
+```
+
+Then reload herdr so the bindings are live:
+
+```bash
+herdr server reload-config
+```
+
+See [Keybindings](../keybindings/) for the full story, including choosing your
+own keys.
+
+## 4. Trigger an action
+
+Run either action from herdr's plugin action menu, or — if you bound keys above —
+press your prefix (default `ctrl+b`) followed by the bound key:
 
 - `prefix` then `up` opens **Control mode** — a full-screen "Herdr Plus"
   workspace with the Projects browser.

@@ -1,94 +1,96 @@
 ---
 title: "Keybindings"
-description: "How herdr-plus install binds a herdr key to a mode: per-mode defaults, overriding the key, idempotency, and how to trigger an action."
+description: "How to bind a herdr key to a herdr-plus plugin action: the recommended per-mode keys, choosing your own key, reloading herdr, and triggering an action from the action menu."
 weight: 30
 ---
 
-You launch herdr-plus by pressing a herdr keybinding. The `herdr-plus install`
-command wires those bindings into herdr for you.
+herdr-plus ships as a [herdr plugin](https://herdr.dev/docs/plugins/). Once the
+plugin is installed (see [Installation](../installation/)), herdr registers its
+two **plugin actions** and you can trigger them straight from herdr's plugin
+action menu. Binding a key to an action is an optional, one-time convenience —
+it lives in **your own** herdr config, not in herdr-plus.
 
-## What `herdr-plus install` does
+## The plugin actions
 
-A bare `herdr-plus install` installs **every mode at once**, each on its own
-default key (control → `prefix+up`, quick-actions → `prefix+down`). For each one
-it adds a `[[keys.command]]` entry to herdr's `config.toml`, then reloads the
-running herdr server so the bindings are live immediately. Pass `--mode` to
-install just a single mode. One entry looks like this:
+Each mode is exposed as a herdr plugin action under the plugin id
+`cloudmanic.herdr-plus`. You reference an action by its fully-qualified id:
+
+| Mode | Plugin action | Recommended key |
+|------|---------------|-----------------|
+| Control | `cloudmanic.herdr-plus.control` | `prefix+up` |
+| Quick Actions | `cloudmanic.herdr-plus.quick-actions` | `prefix+down` |
+
+You can confirm the plugin and its actions are registered with:
+
+```bash
+herdr plugin list
+herdr plugin action list --plugin cloudmanic.herdr-plus
+```
+
+## Binding a key
+
+Binding a key to an action is a one-time edit to **your** herdr config —
+`$XDG_CONFIG_HOME/herdr/config.toml` if `XDG_CONFIG_HOME` is set, otherwise
+`~/.config/herdr/config.toml`. herdr-plus never edits this file for you; you own
+it.
+
+Add a `[[keys.command]]` entry with `type = "plugin_action"` whose `command` is
+the action id. The recommended convention is `prefix+up` for control and
+`prefix+down` for quick-actions, side by side:
 
 ```toml
-# herdr-plus — added by `herdr-plus install`
 [[keys.command]]
 key = "prefix+up"
-type = "shell"
-command = "'/absolute/path/to/herdr-plus' --mode=control"
-description = "herdr-plus: control"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.control"
+description = "herdr-plus: control / projects"
+
+[[keys.command]]
+key = "prefix+down"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.quick-actions"
+description = "herdr-plus: quick actions"
 ```
 
-A few important details:
+You can add just one of these, or both. The two modes use different keys, so they
+coexist happily.
 
-- **It binds the absolute path of the binary you invoked.** That means the
-  keybinding works no matter where herdr-plus lives or what your current
-  directory is. If the binary was reached through a symlink, the symlink is
-  resolved to its real target first.
-- **It writes to herdr's config.** That's `$XDG_CONFIG_HOME/herdr/config.toml`
-  if `XDG_CONFIG_HOME` is set, otherwise `~/.config/herdr/config.toml`. The file
-  (and its directory) are created if they don't exist.
-- **It reloads herdr.** After writing, it runs `herdr server reload-config` so
-  you don't have to restart herdr. If the reload fails it tells you to run that
-  command yourself or restart herdr.
+## Reloading herdr
 
-### It's idempotent
-
-Running `install` again for the same mode won't duplicate the binding. herdr-plus
-detects an existing binding that runs the exact same command (same binary, same
-`--mode`) and simply reports where it lives instead of adding another. Because
-each mode's command carries its own `--mode` flag, the two modes never collide
-with each other — installing `control` doesn't trip over an existing
-`quick-actions` binding.
-
-### It refuses to clobber other bindings
-
-If the key you're asking for is already bound to something *else*, `install`
-stops and tells you what's there, suggesting you pick a different key with
-`--key`. It never overwrites a binding it didn't create.
-
-## Per-mode default keys
-
-Each mode claims its own conventional key, so the two can be installed side by
-side without conflicting:
-
-| Mode | Slug | Default key |
-|------|------|-------------|
-| Control | `control` | `prefix+up` |
-| Quick Actions | `quick-actions` | `prefix+down` |
-
-When you run `install` for a single mode without `--key`, it uses that mode's
-default.
-
-## Installing both, side by side
-
-A bare `install` does this in one shot — it walks every mode and binds each to
-its default key:
+After editing your `config.toml`, make the new binding live with:
 
 ```bash
-herdr-plus install   # prefix+up -> control AND prefix+down -> quick-actions
+herdr server reload-config
 ```
 
-Now `prefix+up` opens Control mode and `prefix+down` opens Quick Actions. (You
-can still install them one at a time with `--mode` if you only want one.)
+(or restart herdr). Until you reload, herdr is still running the previous config
+and the key won't do anything.
 
-## Overriding the key
+## Choosing your own key
 
-Pass `--key` to bind any herdr key you like, for any mode:
+`prefix+up` and `prefix+down` are recommendations, not requirements — the
+`key` field takes any herdr key you like. To put control on `prefix+a` instead,
+just change the `key`:
 
-```bash
-herdr-plus install --key=prefix+a                       # control on prefix+a
-herdr-plus install --mode=quick-actions --key=prefix+space
+```toml
+[[keys.command]]
+key = "prefix+a"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.control"
+description = "herdr-plus: control / projects"
 ```
 
-If the chosen key is taken, `install` will refuse and ask you to pick another.
+Pick a key that isn't already bound to something else in your herdr config. If a
+key is already taken, herdr's own config rules apply — choose a free one.
 
-## The herdr prefix, and triggering an action
+## Triggering without a key
+
+You don't have to bind anything at all. Both actions are always available from
+herdr's **plugin action menu**, so you can run control or quick-actions
+on demand without touching your config. A key binding is purely a shortcut for
+the actions you reach for often.
+
+## The herdr prefix
 
 herdr keybindings are *prefixed*: you press your herdr prefix (default
 `ctrl+b`), release it, then press the bound key. So to launch a mode bound to
@@ -97,12 +99,10 @@ herdr keybindings are *prefixed*: you press your herdr prefix (default
 > Press `ctrl+b`, then press `up`.
 
 The `prefix+` part of the key name is herdr's placeholder for "whatever your
-prefix is" — it isn't the literal text `prefix`. After a successful install,
-herdr-plus prints the exact reminder, e.g. *"Press your prefix, then up, to
-launch."*
+prefix is" — it isn't the literal text `prefix`.
 
 ## See also
 
-- [Modes](../modes/) — the mode concept and the `--mode` flag.
-- [Installation](../installation/) — getting the binary onto your PATH.
+- [Modes](../modes/) — the mode concept and the plugin actions.
+- [Installation](../installation/) — installing the plugin (and the standalone binary).
 - [Troubleshooting](../troubleshooting/) — what to check when a key does nothing.

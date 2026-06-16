@@ -1,19 +1,24 @@
 # herdr-plus
 
 herdr-plus is an add-on platform for [herdr](https://herdr.dev) — a place to build
-extensions and plugins on top of herdr's terminal panes. The same binary can run
-in different **modes**; each mode decides what to do when it talks to herdr.
+extensions and plugins on top of herdr's terminal panes. It ships as a
+[herdr plugin](https://herdr.dev/docs/plugins/): herdr registers it from the
+[`herdr-plugin.toml`](herdr-plugin.toml) manifest and exposes its **modes** as
+plugin actions you trigger from a keybinding or herdr's action menu.
 
 We're in explore mode: the list of modes will grow over time.
 
 ## Modes
 
-Pick a mode with `--mode=<slug>`. With no flag, the default mode runs.
+Each mode is a herdr plugin action under the plugin id `cloudmanic.herdr-plus`.
 
-| Mode | Slug | Key | What it does |
-|------|------|-----|--------------|
-| Control | `control` (default) | `prefix+up` | herdr-plus's home base — a full-screen workspace for driving herdr. First feature: **Projects**. |
-| Quick Actions | `quick-actions` | `prefix+down` | A fuzzy launcher: pick an action and run it in a split. |
+| Mode | Plugin action | Slug | What it does |
+|------|---------------|------|--------------|
+| Control | `cloudmanic.herdr-plus.control` | `control` (default) | herdr-plus's home base — a full-screen workspace for driving herdr. First feature: **Projects**. |
+| Quick Actions | `cloudmanic.herdr-plus.quick-actions` | `quick-actions` | A fuzzy launcher: pick an action and run it in a split. |
+
+The same actions back the binary directly, which is handy for scripting and
+debugging the modes outside herdr's action plumbing:
 
 ```bash
 herdr-plus                       # default mode (control)
@@ -23,9 +28,11 @@ herdr-plus version               # print the version and exit
 
 ## Control mode & Projects
 
-Pressing `prefix+up` opens a brand-new, full-screen herdr workspace titled
-**Herdr Plus** with a `projects` tab, and runs the projects browser there. This is
-control mode — over time it will gain more features; today it has Projects.
+Triggering the control action (bind it to `prefix+up`, or run it from herdr's
+action menu — see [Installing](#installing)) opens a brand-new, full-screen herdr
+workspace titled **Herdr Plus** with a `projects` tab, and runs the projects
+browser there. This is control mode — over time it will gain more features; today
+it has Projects.
 
 A **project** is a declarative herdr workspace template: a name, a description, a
 working directory, and an ordered list of tabs (each with an optional startup
@@ -104,49 +111,74 @@ split tabs are shown with a `×N` pane count (e.g. `server ×2`).
 
 ## Installing
 
-**Homebrew** (the repo is its own tap):
+herdr-plus is a herdr plugin (requires **herdr ≥ 0.7.0**). Installing it registers
+the plugin's actions with herdr — no editing of your `config.toml` and no separate
+keybinding installer.
+
+**As a herdr plugin** (recommended). herdr clones this repo, runs the manifest's
+`[[build]]` step to compile the binary, and registers the `control` and
+`quick-actions` actions. Needs a Go toolchain on the machine:
 
 ```bash
-brew tap cloudmanic/herdr-plus https://github.com/cloudmanic/herdr-plus
-brew install cloudmanic/herdr-plus/herdr-plus
+herdr plugin install cloudmanic/herdr-plus
 ```
 
-**Install script** (Linux/macOS, no Homebrew):
+**For local development**, link a checkout in place (build the binary first so the
+actions have something to run):
 
 ```bash
+make build
+herdr plugin link /path/to/herdr-plus
+```
+
+From inside a checkout, `make plugin-link` does both steps in one shot.
+
+Manage it with the usual plugin commands — `herdr plugin list`,
+`herdr plugin action list --plugin cloudmanic.herdr-plus`,
+`herdr plugin uninstall cloudmanic.herdr-plus` (or `unlink` for a linked checkout).
+
+### Just the binary (Homebrew / install script)
+
+If you'd rather have `herdr-plus` on your `PATH` to run directly, the standalone
+binary is still distributed on its own:
+
+```bash
+# Homebrew (the repo is its own tap)
+brew tap cloudmanic/herdr-plus https://github.com/cloudmanic/herdr-plus
+brew install cloudmanic/herdr-plus/herdr-plus
+
+# or the install script (Linux/macOS, no Homebrew)
 curl -fsSL https://raw.githubusercontent.com/cloudmanic/herdr-plus/main/install.sh | sh
 ```
 
-**From source:**
-
-```bash
-make build && make install-bin
-```
-
 Every merge to `main` auto-bumps the patch version and cuts a new GitHub Release
-with cross-compiled binaries; `brew upgrade` / re-running the install script
-pulls the latest.
+with cross-compiled binaries; `brew upgrade` / re-running the install script pulls
+the latest.
 
-The bare command opens a focused split beneath your current pane and runs the
-picker there. Choose an action, and the pane closes itself when the action runs.
+## Binding a key
 
-## Install the keybinding
+The plugin registers the actions; binding a key to one is an optional, one-time
+edit to **your** herdr `config.toml` (`~/.config/herdr/config.toml`). Add a
+`[[keys.command]]` entry with `type = "plugin_action"` whose `command` is the
+fully-qualified action id:
 
-```bash
-herdr-plus install                      # binds BOTH modes: prefix+up -> control, prefix+down -> quick-actions
-herdr-plus install --mode=quick-actions # bind just quick-actions (prefix+down)
-herdr-plus install --key=prefix+a       # override the key for a single mode
+```toml
+[[keys.command]]
+key = "prefix+up"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.control"
+description = "herdr-plus: control / projects"
+
+[[keys.command]]
+key = "prefix+down"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.quick-actions"
+description = "herdr-plus: quick actions"
 ```
 
-A bare `herdr-plus install` wires up every mode on its own default key (control →
-`prefix+up`, quick-actions → `prefix+down`) in one shot. Pass `--mode` to install
-just one, and `--key` to override that mode's key.
-
-`install` adds a `[[keys.command]]` entry to herdr's `config.toml` that runs the
-**absolute path** of the binary you invoked, then reloads the running herdr
-server. It is idempotent (it won't duplicate an existing herdr-plus binding) and
-refuses to overwrite a key already bound to something else. After installing,
-press your herdr prefix (default `ctrl+b`) followed by the bound key.
+Then `herdr server reload-config` (or restart herdr) and press your herdr prefix
+(default `ctrl+b`) followed by the bound key. You can also run any action from
+herdr's plugin action menu without binding a key at all.
 
 ## Configuration
 
@@ -310,6 +342,8 @@ go test ./...
 
 ## Adding a mode
 
-1. Add a `Mode` value and register it in `modes` in `mode.go`.
-2. (Optional) Add bundled example actions under `examples/<slug>/`.
-3. Teach the launcher/picker how the mode behaves where it differs.
+1. Add a `Mode` value and register it in `orderedModes` in `mode.go`.
+2. Add an `[[actions]]` entry to `herdr-plugin.toml` that runs
+   `./bin/herdr-plus --mode=<slug>`, so herdr exposes the mode as a plugin action.
+3. (Optional) Add bundled example actions under `examples/<slug>/`.
+4. Teach the launcher/picker how the mode behaves where it differs.

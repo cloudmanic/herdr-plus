@@ -10,10 +10,11 @@ with a single keypress.
 
 ## What Control mode does
 
-Pressing `prefix+up` opens a brand-new, full-screen herdr workspace titled
-**Herdr Plus** with a tab named `projects`, and runs the projects browser there.
-This is control mode — over time it will gain more features; today it has
-Projects.
+Triggering the control action (run it from herdr's action menu, or bind it to a
+key like `prefix+up` — see [Keybindings](../keybindings/)) opens a brand-new,
+full-screen herdr workspace titled **Herdr Plus** with a tab named `projects`,
+and runs the projects browser there. This is control mode — over time it will
+gain more features; today it has Projects.
 
 Fuzzy-find a project, press `enter` (or click it), and herdr-plus spins up a
 whole workspace — every tab created and every command running — then closes the

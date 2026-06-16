@@ -28,9 +28,6 @@ func main() {
 		case "picker":
 			runPickerCmd(os.Args[2:])
 			return
-		case "install":
-			runInstallCmd(os.Args[2:])
-			return
 		case "version", "--version", "-v", "-V":
 			fmt.Println("herdr-plus", version.Version)
 			return

@@ -11,15 +11,20 @@ order.
 
 Work through these:
 
-1. **Did you run `herdr-plus install`?** The key only does something after you
-   bind it. Run `herdr-plus install` (control) and/or
-   `herdr-plus install --mode=quick-actions`.
-2. **Are you inside herdr?** herdr-plus talks to a running herdr server over a
+1. **Is the plugin installed?** Run `herdr plugin list` and confirm
+   `cloudmanic.herdr-plus` is there, and `herdr plugin action list --plugin
+   cloudmanic.herdr-plus` shows `control` and `quick-actions`. If not, install it
+   — `herdr plugin install cloudmanic/herdr-plus`. See
+   [Installation](../installation/).
+2. **Did you bind the key?** The action menu works without any binding, but a
+   *key* only fires after you add a `[[keys.command]]` entry to **your** herdr
+   config (`~/.config/herdr/config.toml`) with `type = "plugin_action"` and the
+   right action id. See [Keybindings](../keybindings/).
+3. **Did the config reload?** After editing `config.toml`, run
+   `herdr server reload-config` (or restart herdr) so the new binding is live.
+4. **Are you inside herdr?** herdr-plus talks to a running herdr server over a
    local socket. If you're not in a herdr session, there's no pane to act on.
-3. **Did the binding reload?** `install` runs `herdr server reload-config` for
-   you, but if that step failed it told you so. Run `herdr server reload-config`
-   yourself, or restart herdr.
-4. **Are you pressing the prefix correctly?** herdr keybindings are prefixed:
+5. **Are you pressing the prefix correctly?** herdr keybindings are prefixed:
    press your prefix (default `ctrl+b`), release, then press the bound key (e.g.
    `up`). See [Keybindings](../keybindings/).
 
@@ -33,24 +38,27 @@ The binary isn't on your `$PATH`.
 - You can also pass `INSTALL_DIR=...` to the script to install somewhere already
   on your PATH. See [Installation](../installation/).
 
-> **Note:** The *keybinding* itself uses the binary's **absolute path**, so a
-> bound key works even when `herdr-plus` isn't on your PATH. The "command not
-> found" error only bites when you type `herdr-plus` at a prompt.
+> **Note:** When you install the plugin with `herdr plugin install`, herdr runs
+> the action's binary for you — you don't need `herdr-plus` on your `$PATH`. The
+> "command not found" error only bites when you install the standalone binary and
+> type `herdr-plus` at a prompt yourself.
 
-## "key is already bound to: ..."
+## My key is bound to something else
 
-`install` refuses to overwrite a key that's bound to something else — it never
-clobbers a binding it didn't create. Pick a different key:
+If the key you chose already runs another command, herdr's own config rules
+apply — a key can only do one thing. Pick a free key in your
+`[[keys.command]]` entry:
 
-```bash
-herdr-plus install --key=prefix+a
+```toml
+[[keys.command]]
+key = "prefix+a"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.control"
+description = "herdr-plus: control / projects"
 ```
 
-If you really want that key, remove the conflicting `[[keys.command]]` entry from
-herdr's `config.toml` first, then re-run `install`.
-
-> **Tip:** Re-running `install` for a mode that's already bound is safe — it
-> won't duplicate the binding, it just reports where the existing one lives.
+After changing the `key`, run `herdr server reload-config` (or restart herdr) so
+the new binding takes effect. See [Keybindings](../keybindings/).
 
 ## My config / action / project isn't picked up
 

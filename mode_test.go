@@ -28,14 +28,3 @@ func TestLookupModeDefaultIsControl(t *testing.T) {
 		t.Fatal("lookupMode(nope) should error on an unknown slug")
 	}
 }
-
-// TestModeDefaultKeys pins each mode to its conventional keybinding so the two
-// modes can be installed side by side without colliding.
-func TestModeDefaultKeys(t *testing.T) {
-	if ModeControl.DefaultKey != "prefix+up" {
-		t.Fatalf("control default key = %q, want prefix+up", ModeControl.DefaultKey)
-	}
-	if ModeQuickActions.DefaultKey != "prefix+down" {
-		t.Fatalf("quick-actions default key = %q, want prefix+down", ModeQuickActions.DefaultKey)
-	}
-}

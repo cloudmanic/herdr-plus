@@ -1,0 +1,46 @@
+#
+# Date: 2026-06-15
+# Author: Spicer Matthews (spicer@cloudmanic.com)
+# Copyright: 2026 Cloudmanic Labs, LLC. All rights reserved.
+#
+# herdr-plugin.toml registers herdr-plus with herdr as a first-class plugin. This
+# replaces the old `herdr-plus install` flow that hand-edited the user's
+# config.toml: herdr now owns registration. Install it with
+#
+#   herdr plugin install cloudmanic/herdr-plus
+#
+# which clones this repo, runs the [[build]] step below to compile the binary, and
+# registers the actions. For local development, run `herdr plugin link .` from a
+# checkout (build the binary first with `make build`). See the README for the
+# optional keybindings that map prefix+up / prefix+down onto these actions.
+
+id = "cloudmanic.herdr-plus"
+name = "Herdr Plus"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "An add-on platform for herdr: Control mode (declarative Projects) and a Quick Actions fuzzy launcher."
+platforms = ["linux", "macos", "windows"]
+
+# Compile the binary from source at install time. herdr runs this once, after you
+# confirm a GitHub install and before registering the plugin, with no plugin
+# context or socket environment. It needs a Go toolchain on the machine; the
+# resulting ./bin/herdr-plus is what the actions below invoke.
+[[build]]
+command = ["go", "build", "-o", "bin/herdr-plus", "."]
+
+# Control mode — herdr-plus's home base. Opens a brand-new, full-screen "Herdr
+# Plus" workspace and runs the Projects browser inside it: fuzzy-pick a project
+# and herdr-plus spins up its whole declarative workspace. The binary discovers
+# the focused pane over the socket, so this works whether triggered from a
+# keybinding or herdr's plugin action menu.
+[[actions]]
+id = "control"
+title = "Herdr Plus · Projects"
+command = ["./bin/herdr-plus", "--mode=control"]
+
+# Quick Actions — a fuzzy launcher. Splits the focused pane and opens the action
+# picker beneath it; the chosen action runs in that split.
+[[actions]]
+id = "quick-actions"
+title = "Quick Actions"
+command = ["./bin/herdr-plus", "--mode=quick-actions"]

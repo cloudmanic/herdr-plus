@@ -80,9 +80,10 @@ herdr-plus follows the XDG convention:
 - Otherwise it falls back to `~/.config/herdr-plus/`, so the location is the same
   on macOS and Linux.
 
-> **Note:** herdr's own config (the `config.toml` that `herdr-plus install`
-> writes to) follows the same rule under `herdr/` rather than `herdr-plus/`. See
-> [Keybindings](../keybindings/).
+> **Note:** herdr's own config (`config.toml`, where you optionally add a
+> keybinding for a herdr-plus plugin action) is a separate file that follows the
+> same XDG rule under `herdr/` rather than `herdr-plus/`. herdr-plus never edits
+> it — you own it. See [Keybindings](../keybindings/).
 
 ## See also
 

@@ -4,13 +4,15 @@ description: "The fuzzy launcher: pick an action and run it in a split. Covers g
 weight: 60
 ---
 
-Quick Actions is a fuzzy launcher. Press `prefix+down`, type a few characters to
-filter, pick an action, and it runs in a split pane.
+Quick Actions is a fuzzy launcher. Trigger the quick-actions action (run it from
+herdr's action menu, or bind it to a key like `prefix+down` — see
+[Keybindings](../keybindings/)), type a few characters to filter, pick an action,
+and it runs in a split pane.
 
 ## What it does
 
-Pressing `prefix+down` opens a focused split *beneath* your current pane and runs
-the picker there. The picker is a fuzzy finder over your actions:
+Triggering the quick-actions action opens a focused split *beneath* your current
+pane and runs the picker there. The picker is a fuzzy finder over your actions:
 
 - `↑`/`↓` (or `ctrl+p`/`ctrl+n`, or the mouse wheel) move the highlight.
 - Type to filter the list.
