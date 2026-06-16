@@ -1,0 +1,31 @@
+{{- /* install-box.html — the herdr-plus install. The plugin install is the
+        primary (and only required) step; the standalone binary is an optional
+        extra tucked behind a disclosure. Call:
+        {{ partial "install-box.html" (dict "id" "hero" "ctx" .) }}
+        .id must be unique per page so multiple boxes don't collide. */ -}}
+{{- $id := .id -}}
+{{- $p := .ctx.Site.Params -}}
+<div class="w-full">
+  {{ partial "codebox.html" (dict "cmd" $p.pluginInstallCmd) }}
+  <p class="mt-2 px-1 text-xs" style="color:var(--color-faint)">
+    herdr clones the repo, runs the build, and registers the actions — with or without Go.
+    Re-run the same command any time to upgrade.
+  </p>
+
+  <details class="group mt-4">
+    <summary class="cursor-pointer list-none text-sm link-accent">
+      Just want the <code class="font-mono">herdr-plus</code> binary on your <code class="font-mono">PATH</code>?
+    </summary>
+    <div class="mt-3 space-y-2" data-install-binary="{{ $id }}">
+      <p class="px-1 text-xs" style="color:var(--color-muted)">Homebrew — the repo is its own tap:</p>
+      {{ partial "codebox.html" (dict "cmd" $p.brewTapCmd) }}
+      {{ partial "codebox.html" (dict "cmd" $p.brewInstallCmd) }}
+      <p class="px-1 pt-1 text-xs" style="color:var(--color-muted)">…or the install script (Linux &amp; macOS, no Homebrew):</p>
+      {{ partial "codebox.html" (dict "cmd" $p.scriptInstallCmd) }}
+      <p class="px-1 pt-1 text-xs" style="color:var(--color-faint)">
+        This installs only the binary (handy for <code class="font-mono">herdr-plus version</code>).
+        It does <strong>not</strong> register the plugin with herdr — use the command above for that.
+      </p>
+    </div>
+  </details>
+</div>

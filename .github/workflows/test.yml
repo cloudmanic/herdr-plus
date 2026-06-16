@@ -5,9 +5,7 @@
 #
 # Test pipeline for herdr-plus. Runs the build, vet, and `go test ./...` with the
 # race detector on every push and pull request, on Linux + macOS, so we catch
-# platform-specific issues before they ship. Only the root module is exercised;
-# the archived reference code in old/ is a separate nested module and is ignored
-# by `./...`.
+# platform-specific issues before they ship.
 
 name: Test
 

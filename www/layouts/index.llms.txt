@@ -1,0 +1,27 @@
+{{- /* index.llms.txt — concise, link-rich index for LLMs (llms.txt convention). */ -}}
+{{- $docs := .Site.GetPage "/docs" -}}
+# herdr plus
+
+> {{ .Site.Params.description }}
+
+herdr-plus is an open-source add-on for herdr ({{ .Site.Params.herdrUrl }}), a terminal multiplexer and agent runtime — built as a first-class herdr plugin ({{ .Site.Params.herdrPluginsUrl }}). Install it with `{{ .Site.Params.pluginInstallCmd }}`; herdr clones the repo, builds it, and registers the plugin's actions. Two ship today: **Projects** (action `cloudmanic.herdr-plus.projects`) — declarative templates that spin up a whole herdr workspace of tabs and panes — and **Quick Actions** (action `cloudmanic.herdr-plus.quick-actions`) — a fuzzy launcher that runs a one-off action in the directory you launched from. Configuration is plain TOML files in herdr's managed plugin config directory. It is free and MIT-licensed, by {{ .Site.Params.company }}.
+
+## Documentation
+{{ range $docs.RegularPages.ByWeight -}}
+- [{{ .Title }}]({{ .Permalink }}): {{ .Description }}
+{{ end }}
+## Full text for agents
+- [llms-full.txt]({{ "llms-full.txt" | absURL }}): The complete documentation inlined as a single plain-text file.
+
+## Project links
+- [Documentation home]({{ $docs.Permalink }}): Human-readable docs.
+- [GitHub repository]({{ .Site.Params.githubUrl }}): Source code, issues, releases.
+- [Releases]({{ .Site.Params.releasesUrl }}): Versioned downloads and changelog.
+- [herdr]({{ .Site.Params.herdrUrl }}): The terminal herdr-plus extends.
+- [Cloudmanic Labs]({{ .Site.Params.cloudmanicUrl }}): The maintainer.
+
+## Install
+- Plugin (this is the install): `{{ .Site.Params.pluginInstallCmd }}` — herdr clones, builds, and registers it; re-run the same command to upgrade in place. Requires herdr >= 0.7.0.
+- Config dir (holds projects/ and quick-actions/): `{{ .Site.Params.configDirCmd }}`
+- Bind keys (optional — or run the actions from herdr's action menu): add `[[keys.command]]` entries to herdr's config.toml with `type = "plugin_action"` and `command = "cloudmanic.herdr-plus.projects"` / `"cloudmanic.herdr-plus.quick-actions"`, then run `herdr server reload-config`.
+- Optional standalone binary (only to get `herdr-plus` on your PATH; does NOT register the plugin): `{{ .Site.Params.brewTapCmd }}` then `{{ .Site.Params.brewInstallCmd }}`, or `{{ .Site.Params.scriptInstallCmd }}`.
