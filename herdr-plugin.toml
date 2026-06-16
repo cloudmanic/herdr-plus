@@ -18,11 +18,13 @@ min_herdr_version = "0.7.0"
 description = "An add-on platform for herdr. Projects: declarative workspace templates you fuzzy-pick to spin up a whole herdr workspace."
 platforms = ["linux", "macos", "windows"]
 
-# Compile the binary from source at install time. herdr runs this once, after you
-# confirm a GitHub install and before registering the plugin. It needs a Go
-# toolchain; the resulting ./bin/herdr-plus is what the entry points below invoke.
+# Produce the binary at install time. herdr runs this once, after you confirm a
+# GitHub install and before registering the plugin. The script prefers a local Go
+# toolchain (an exact build of the cloned source) and falls back to downloading
+# the latest prebuilt release binary, so installing works with or without Go.
+# Either way the result is ./bin/herdr-plus, which the entry points below invoke.
 [[build]]
-command = ["go", "build", "-o", "bin/herdr-plus", "."]
+command = ["sh", "scripts/build.sh"]
 
 # projects — the flagship action. Opens a full-screen browser to fuzzy-pick a
 # project (a declarative set of tabs/panes from ~/.config/herdr-plus/projects/)
