@@ -131,21 +131,44 @@ func openProject(client *herdrClient, p Project, controlWS string) error {
 		return fmt.Errorf("create workspace: %w", err)
 	}
 
+	// Lay the project's tabs into the freshly created workspace.
+	if err := layoutTabs(client, ws, rootTab, rootPane, p.Tabs); err != nil {
+		return err
+	}
+
+	// Tear down the ephemeral control workspace. Focus is already on the new
+	// project workspace, so this only removes the launcher. This also closes the
+	// pane this process is running in, so it is the last thing we do.
+	if controlWS != "" {
+		_ = client.workspaceClose(controlWS)
+	}
+	return nil
+}
+
+// layoutTabs lays an ordered list of tabs — each with its panes and optional
+// startup commands — into an existing workspace whose root tab and root pane are
+// rootTab and rootPane. tab[0] reuses the root tab (renamed) and root pane; each
+// later tab is created without focus so the first stays in front while the rest
+// spin up. Within a tab the first pane is the tab's root and each later pane is
+// split off the previous one. Every startup command is run last, once all panes
+// exist, paced to its freshly spawned shell.
+//
+// It is shared by control mode — which creates the workspace first, then fills
+// it — and the worktree.created handler, where herdr has already made the
+// worktree's workspace and we only need to populate it.
+func layoutTabs(client *herdrClient, ws, rootTab, rootPane string, tabs []ProjectTab) error {
 	// pendingRun pairs a pane with the command it should run once all panes exist.
 	type pendingRun struct {
 		pane    string
 		command string
 	}
 	var runs []pendingRun
+	var err error
 
-	// Create every tab in the project's order. tab[0] reuses the workspace's root
-	// tab (renamed); each later tab is created without focus so the first tab
-	// stays in front while the rest spin up. Within a tab, the first pane is the
-	// tab's root and each later pane is split off the previous one.
-	for i, t := range p.Tabs {
+	for i, t := range tabs {
 		tabRoot := rootPane
 		if i == 0 {
-			if err := client.tabRename(rootTab, t.Name); err != nil {
+			if err = client.tabRename(rootTab, t.Name); err != nil {
 				return fmt.Errorf("rename root tab: %w", err)
 			}
 		} else {
@@ -179,13 +202,6 @@ func openProject(client *herdrClient, p Project, controlWS string) error {
 		if err := client.runCommand(r.pane, r.command); err != nil {
 			return fmt.Errorf("run command in pane %s: %w", r.pane, err)
 		}
-	}
-
-	// Tear down the ephemeral control workspace. Focus is already on the new
-	// project workspace, so this only removes the launcher. This also closes the
-	// pane this process is running in, so it is the last thing we do.
-	if controlWS != "" {
-		_ = client.workspaceClose(controlWS)
 	}
 	return nil
 }

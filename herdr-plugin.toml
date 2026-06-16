@@ -44,3 +44,11 @@ command = ["./bin/herdr-plus", "--mode=control"]
 id = "quick-actions"
 title = "Quick Actions"
 command = ["./bin/herdr-plus", "--mode=quick-actions"]
+
+# Worktree auto-layout — when herdr creates a git worktree, this fires and lays a
+# matching layout's tabs/panes into the worktree's workspace (herdr has already
+# created the workspace). Layouts live in ~/.config/herdr-plus/worktrees/ and
+# match by repo (and optionally branch); with none configured this is a no-op.
+[[events]]
+on = "worktree.created"
+command = ["./bin/herdr-plus", "on-worktree-created"]

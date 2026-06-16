@@ -1,6 +1,6 @@
 ---
 title: "Configuration"
-description: "The herdr-plus config directory layout: projects/, quick-actions/, the file-per-entry model, per-repo overrides, and XDG_CONFIG_HOME."
+description: "The herdr-plus config directory layout: projects/, quick-actions/, worktrees/, the file-per-entry model, per-repo overrides, and XDG_CONFIG_HOME."
 weight: 90
 ---
 
@@ -20,6 +20,9 @@ entry.
     github.toml
     google.toml
     ...
+  worktrees/         # one *.toml per worktree auto-layout
+    options-cafe.toml
+    ...
 ```
 
 - **`projects/`** holds your [project templates](../projects/) for control mode.
@@ -28,10 +31,13 @@ entry.
 - **`quick-actions/`** holds your [quick actions](../quick-actions/). Each
   `*.toml` defines one action. This directory is **seeded with editable
   examples** the first time you run the mode.
+- **`worktrees/`** holds your [worktree auto-layouts](../worktrees/). Each
+  `*.toml` defines one layout that fires when herdr creates a matching git
+  worktree. This directory is never created or seeded — add it yourself to opt in.
 
 The per-mode subdirectory name is the mode's slug (`quick-actions`), so future
-modes get their own folder. Projects hang directly off the config root (not under
-a mode slug) because they're a first-class concept.
+modes get their own folder. `projects/` and `worktrees/` hang directly off the
+config root (not under a mode slug) because they're first-class concepts.
 
 ## The file-per-entry model
 

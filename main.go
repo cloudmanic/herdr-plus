@@ -14,11 +14,13 @@ import (
 	"github.com/cloudmanic/herdr-plus/internal/version"
 )
 
-// main dispatches between the two modes of the binary. The bare binary
-// (optionally with --mode) is the launcher: it opens a bottom split and starts
-// the picker inside it. The hidden "picker" subcommand renders the fuzzy-finder
-// TUI and, on exit, closes its own pane. The launcher re-invokes itself in
-// picker mode, so end users only ever run the bare binary.
+// main dispatches between the binary's entry points. The bare binary (optionally
+// with --mode) is the launcher: it opens a bottom split and starts the picker
+// inside it. The hidden "picker" subcommand renders the fuzzy-finder TUI and, on
+// exit, closes its own pane; the launcher re-invokes itself in picker mode, so
+// end users only ever run the bare binary. The "on-worktree-created" subcommand
+// is herdr's worktree.created event handler — herdr runs it (via the [[events]]
+// entry in herdr-plugin.toml), not the user.
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
@@ -27,6 +29,9 @@ func main() {
 			return
 		case "picker":
 			runPickerCmd(os.Args[2:])
+			return
+		case "on-worktree-created":
+			runOnWorktreeCreated(os.Args[2:])
 			return
 		case "version", "--version", "-v", "-V":
 			fmt.Println("herdr-plus", version.Version)

@@ -39,6 +39,8 @@ recommended keys differ, so the two coexist side by side.
   spin up a whole herdr workspace of tabs and panes.
 - **[Quick Actions](quick-actions/)** — the fuzzy launcher and per-project
   actions.
+- **[Worktree Auto-Layout](worktrees/)** — auto-open a tab layout whenever herdr
+  creates a matching git worktree.
 
 If you just want the reference, jump to
 [Keybindings](keybindings/), [Modes](modes/), the
