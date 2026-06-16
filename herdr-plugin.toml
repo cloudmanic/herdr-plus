@@ -42,6 +42,24 @@ title = "Herdr Plus: Projects"
 placement = "zoomed"
 command = ["./bin/herdr-plus", "projects-ui"]
 
+# quick-actions — a fuzzy launcher for one-off actions/scripts (command, select,
+# or form), loaded from ~/.config/herdr-plus/quick-actions/ (plus a repo's own
+# .herdr-plus/quick-actions/). Commands template against and run in the directory
+# you launched from. Bind a key or run it from herdr's action menu.
+[[actions]]
+id = "quick-actions"
+title = "Herdr Plus: Quick Actions"
+command = ["./bin/herdr-plus", "quick-actions"]
+
+# quick-actions-picker — the action picker as a herdr-managed overlay pane. The
+# quick-actions action opens it (passing the launch context), and herdr restores
+# your previous focus when it closes.
+[[panes]]
+id = "quick-actions-picker"
+title = "Quick Actions"
+placement = "overlay"
+command = ["./bin/herdr-plus", "quick-actions-ui"]
+
 # ping — a smoke-test action that proves the plugin loop end to end: it talks to
 # herdr over the socket and prints the focused pane/workspace. Its output is
 # captured in `herdr plugin log list --plugin cloudmanic.herdr-plus`.
