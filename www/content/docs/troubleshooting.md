@@ -74,6 +74,28 @@ Opening a project fails with "working directory does not exist" when its
 checked at open time, not load time, so the same file can be valid elsewhere. Fix
 the `working_dir` (remember `~` and `$VARS` expand). See [Projects](../projects/).
 
+## My worktree didn't get its layout
+
+Creating a git worktree opened a plain workspace instead of your tabs. The
+[worktree auto-layout](../worktrees/) handler runs on herdr's `worktree.created`
+event and logs why it did or didn't act — check the plugin log first:
+
+```bash
+herdr plugin log list --plugin cloudmanic.herdr-plus
+```
+
+Common causes:
+
+- **No matching layout.** The log says `no worktree layout matches repo …`. The
+  `repo` in your layout must match the worktree's repo name (its basename),
+  case-insensitively. Confirm the file is in `worktrees/` (not `projects/`).
+- **The layout is switched off.** The log says `… matches repo … but is disabled`.
+  Remove `enabled = false` (or set it to `true`) in that layout file.
+- **A branch mismatch.** A layout with a `branch` only fires for worktrees created
+  on exactly that branch. Drop the `branch` line to apply to every branch.
+- **A config typo.** An invalid file fails the whole load with an error naming the
+  file — fix it and create the worktree again.
+
 ## Template errors in a command
 
 The `command` is a Go `text/template`. A bad field name or malformed `{{...}}`

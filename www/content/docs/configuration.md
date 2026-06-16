@@ -1,6 +1,6 @@
 ---
 title: "Configuration"
-description: "The herdr-plus config directory: herdr's managed plugin dir, the projects/ and quick-actions/ subdirs, the file-per-entry model, and per-repo overrides."
+description: "The herdr-plus config directory: herdr's managed plugin dir, the projects/, quick-actions/, and worktrees/ subdirs, the file-per-entry model, and per-repo overrides."
 weight: 90
 ---
 
@@ -36,6 +36,9 @@ upgrade**, so your projects and quick actions survive a reinstall.
     github.toml
     google.toml
     ...
+  worktrees/         # one *.toml per worktree auto-layout
+    options-cafe.toml
+    ...
 ```
 
 - **`projects/`** holds your [project templates](../projects/). Each `*.toml`
@@ -44,6 +47,10 @@ upgrade**, so your projects and quick actions survive a reinstall.
 - **`quick-actions/`** holds your [quick actions](../quick-actions/). Each `*.toml`
   defines one action. This directory is **seeded with editable examples** the first
   time you open the launcher.
+- **`worktrees/`** holds your [worktree auto-layouts](../worktrees/). Each `*.toml`
+  defines one layout that fires when herdr creates a matching git worktree. This
+  directory is **never created or seeded** — add it yourself to opt in, and set a
+  layout's `enabled = false` to keep it on disk without deploying it.
 
 ## The file-per-entry model
 
@@ -62,6 +69,8 @@ sorted by their `name` in the UI.
   example won't make it reappear.
 - `projects/` is never seeded. An empty directory is meaningful: it triggers the
   Projects onboarding empty-state.
+- `worktrees/` is never created or seeded. It exists only if you add it, which is
+  how the [worktree auto-layout](../worktrees/) feature stays opt-in.
 
 ## Per-project (per-repo) overrides
 

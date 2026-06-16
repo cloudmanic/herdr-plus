@@ -23,6 +23,8 @@ import (
 //     pane it opens (the `picker` / `quick-actions-picker` entrypoints), so end
 //     users never run them directly.
 //   - "ping" is a smoke test that proves the plugin loop end to end.
+//   - "on-worktree-created" is herdr's worktree.created event handler — herdr runs
+//     it (via the [[events]] entry in herdr-plugin.toml), not the user.
 //
 // The bare binary has no launcher of its own, so it just prints usage.
 func main() {
@@ -42,6 +44,9 @@ func main() {
 			return
 		case "ping":
 			runPing()
+			return
+		case "on-worktree-created":
+			runOnWorktreeCreated(os.Args[2:])
 			return
 		case "version", "--version", "-v", "-V":
 			fmt.Println("herdr-plus", version.Version)
