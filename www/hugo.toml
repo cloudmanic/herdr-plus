@@ -1,0 +1,103 @@
+#
+# hugo.toml
+# herdr-plus — marketing + documentation site
+#
+# Created on 2026-06-09.
+# Copyright © 2026 Cloudmanic Labs, LLC. All rights reserved.
+#
+# Configuration for the public herdr-plus site. Built by the GitHub Actions
+# workflow at .github/workflows/site.yml and deployed to GitHub Pages.
+#
+# baseURL: the site is served from the custom domain herdrplus.com via GitHub
+# Pages (with www → apex redirect). The custom domain is published by the
+# CNAME file at www/static/CNAME, which Hugo copies to the site root. Every
+# asset/link in the templates still uses Hugo's relURL/.RelPermalink, so the
+# build also works under the GitHub Pages *project* path
+# (cloudmanic.github.io/herdr-plus/) should the custom domain ever be removed.
+#
+
+baseURL          = "https://herdrplus.com/"
+locale           = "en-US"
+title            = "herdr plus"
+enableRobotsTXT  = true
+
+# Don't advertise the generator version.
+disableHugoGeneratorInject = true
+
+# A marketing/docs site needs no taxonomies or RSS feeds.
+disableKinds = ["taxonomy", "term", "RSS"]
+
+[params]
+  # The one-liner that fills in meta tags, og: tags, and the footer.
+  description = "herdr-plus supercharges herdr with quick actions and projects — an open-source extension platform for the herdr terminal. Free, by Cloudmanic Labs."
+  tagline     = "Supercharge herdr."
+  subtagline  = "Quick actions in any tab. Whole workspaces from one file. An open-source extension platform for the herdr terminal."
+
+  # The product-tour video. Paste a YouTube/Vimeo *embed* URL here (e.g.
+  # https://www.youtube.com/embed/XXXX) and the hero swaps the animated
+  # terminal placeholder for the real video automatically. Empty = placeholder.
+  heroVideoUrl = "https://www.youtube.com/embed/G-_4QAA53s4"
+
+  # External references — single source of truth, surfaced across templates.
+  githubUrl       = "https://github.com/cloudmanic/herdr-plus"
+  herdrUrl        = "https://herdr.dev"
+  herdrInstallUrl = "https://herdr.dev/docs/install/"
+  herdrPluginsUrl = "https://herdr.dev/docs/plugins/"
+  cloudmanicUrl   = "https://cloudmanic.com"
+  releasesUrl     = "https://github.com/cloudmanic/herdr-plus/releases"
+  licenseUrl      = "https://github.com/cloudmanic/herdr-plus/blob/main/LICENSE"
+
+  # Install commands — edited here, rendered everywhere (hero, docs, install box).
+  # The plugin install IS the install: herdr clones the repo, runs the build, and
+  # registers the actions. Re-running the same command upgrades in place.
+  pluginInstallCmd = "herdr plugin install cloudmanic/herdr-plus"
+  configDirCmd     = "herdr plugin config-dir cloudmanic.herdr-plus"
+
+  # Standalone-binary install (optional — only to get `herdr-plus` on your PATH;
+  # it does NOT register the plugin with herdr).
+  brewTapCmd      = "brew tap cloudmanic/herdr-plus https://github.com/cloudmanic/herdr-plus"
+  brewInstallCmd  = "brew install cloudmanic/herdr-plus/herdr-plus"
+  scriptInstallCmd = "curl -fsSL https://raw.githubusercontent.com/cloudmanic/herdr-plus/main/install.sh | sh"
+
+  # Footer attribution.
+  company  = "Cloudmanic Labs, LLC"
+  location = "Newberg, Oregon"
+
+# Allow raw HTML in markdown (used sparingly in docs) and configure the TOC.
+[markup]
+  [markup.goldmark.renderer]
+    unsafe = true
+  [markup.highlight]
+    noClasses   = false
+    codeFences  = true
+    tabWidth    = 2
+  [markup.tableOfContents]
+    startLevel = 2
+    endLevel   = 3
+    ordered    = false
+
+# Minify in CI for consistent output.
+[minify]
+  minifyOutput = true
+  [minify.tdewolff.html]
+    keepWhitespace = false
+
+# Custom plain-text output formats for LLM-readable documentation. /llms.txt is
+# a concise, link-rich index; /llms-full.txt inlines the full text of every
+# doc so an agent can learn the entire product from a single fetch. Both are
+# generated from content, so they never drift from the human docs.
+[outputFormats]
+  [outputFormats.llms]
+    mediaType   = "text/plain"
+    baseName    = "llms"
+    isPlainText = true
+    rel         = "alternate"
+  [outputFormats.llmsfull]
+    mediaType   = "text/plain"
+    baseName    = "llms-full"
+    isPlainText = true
+    rel         = "alternate"
+
+[outputs]
+  home = ["HTML", "llms", "llmsfull"]
+

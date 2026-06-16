@@ -9,9 +9,6 @@ herdr-plus is an add-on for [herdr](https://herdr.dev), built as a first-class
 - **[Quick Actions](#quick-actions)** — a fuzzy launcher for one-off
   actions/scripts, run in the directory you launched from.
 
-> This is a clean, plugin-first rebuild. The previous standalone-binary
-> implementation lives under [`old/`](old/) as reference and is not built.
-
 ## Install
 
 herdr-plus is a herdr plugin (requires **herdr ≥ 0.7.0**). Installing it registers
@@ -203,5 +200,5 @@ make test      # go test -race ./...
 make vet       # go vet ./...
 ```
 
-The repo root is the active Go module; `old/` is a separate nested module and is
-ignored by `go ... ./...`.
+The marketing + docs site lives in `www/` (Hugo + Tailwind). Build it with
+`make site`, or run it locally with live reload via `make site-dev`.

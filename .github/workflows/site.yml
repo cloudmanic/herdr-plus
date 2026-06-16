@@ -1,0 +1,96 @@
+#
+# Date: 2026-06-15
+# Author: Spicer Matthews (spicer@cloudmanic.com)
+# Copyright: 2026 Cloudmanic Labs, LLC. All rights reserved.
+#
+# Builds the herdr-plus marketing + docs site (www/) and deploys it to GitHub
+# Pages. Runs on pushes to main that touch the site, and on manual dispatch.
+#
+# The build mirrors `make site` exactly: compile Tailwind v4 with the standalone
+# binary (no Node toolchain), then build Hugo with --minify. Output is the
+# www/public directory, uploaded as the Pages artifact.
+#
+# This workflow is the *only* one that ships the website — the release pipeline
+# (release.yml) ignores www/** so a docs-only change never cuts a binary release.
+#
+# One-time setup (already done for this repo): Settings -> Pages -> Source:
+# "GitHub Actions". The site publishes to the custom domain herdrplus.com, set by
+# www/static/CNAME (Hugo copies it to the site root) plus the domain's DNS and the
+# custom-domain field under Settings -> Pages.
+#
+
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "www/**"
+      - ".github/workflows/site.yml"
+  workflow_dispatch:
+
+# Least-privilege token plus the OIDC id-token Pages deployment needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time; let an in-flight run finish (don't cancel
+# a deploy midway).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  HUGO_VERSION: "0.161.1"
+  TAILWIND_VERSION: "v4.3.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Hugo (extended)
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: ${{ env.HUGO_VERSION }}
+          extended: true
+
+      # The Tailwind v4 standalone binary — statically linked, no Node needed.
+      - name: Install Tailwind CSS
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /usr/local/bin/tailwindcss \
+            "https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/tailwindcss-linux-x64"
+          chmod +x /usr/local/bin/tailwindcss
+          tailwindcss --help | head -1
+
+      - name: Compile Tailwind
+        working-directory: www
+        run: tailwindcss -i assets/css/app.css -o static/css/app.css --minify
+
+      - name: Build Hugo site
+        working-directory: www
+        run: hugo --minify --gc
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: www/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Split out so a failed deploy can be re-run without rebuilding.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
