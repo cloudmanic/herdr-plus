@@ -71,3 +71,13 @@ command = ["./bin/herdr-plus", "quick-actions-ui"]
 id = "ping"
 title = "Herdr Plus: ping"
 command = ["./bin/herdr-plus", "ping"]
+
+# worktree.created — fired by herdr every time it creates a git worktree. The
+# handler looks for a matching, enabled layout in ~/.config/herdr-plus/worktrees/
+# and lays its tabs/panes into the workspace herdr just made. It is a quiet no-op
+# when no layout matches (or the matching one has `enabled = false`), so it is
+# safe to subscribe unconditionally. herdr runs this for you — never invoke it by
+# hand. Output is captured in the plugin log.
+[[events]]
+on = "worktree.created"
+command = ["./bin/herdr-plus", "on-worktree-created"]

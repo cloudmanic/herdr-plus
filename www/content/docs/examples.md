@@ -254,8 +254,47 @@ name = "edit"
 command = "nvim ."
 ```
 
+## Worktree auto-layouts
+
+These live in `worktrees/` and fire automatically when herdr creates a git
+worktree of a matching repo. See [Worktree Auto-Layout](../worktrees/) for the
+full behavior.
+
+### Auto-open tabs for a repo's worktrees
+
+```toml
+# options-cafe.toml
+repo = "options-cafe"          # matches the worktree's repo, case-insensitive
+
+[[tabs]]
+name = "claude"
+command = "claude --dangerously-skip-permissions --chrome"
+
+[[tabs]]
+name = "lazygit"
+command = "lazygit"
+
+[[tabs]]
+name = "terminal"              # no command — just an empty shell
+```
+
+### A branch-specific layout
+
+When more than one layout matches, a branch-specific one wins over a repo-only one.
+
+```toml
+# options-cafe-release.toml
+repo = "options-cafe"
+branch = "release"
+
+[[tabs]]
+name = "deploy"
+command = "./scripts/release.sh"
+```
+
 ## See also
 
 - [Actions Reference](../actions/) — the full action format.
 - [Projects](../projects/) — the full project schema.
+- [Worktree Auto-Layout](../worktrees/) — auto-deploy a layout on worktree creation.
 - [Template Variables](../variables/) — context you can use in commands.

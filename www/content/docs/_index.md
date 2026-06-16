@@ -33,6 +33,8 @@ managed plugin config directory. We expect the list of features to grow.
 - **[Projects](projects/)** — declarative workspace templates that spin up a whole
   herdr workspace of tabs and panes.
 - **[Quick Actions](quick-actions/)** — the fuzzy launcher and per-project actions.
+- **[Worktree Auto-Layout](worktrees/)** — auto-open a tab layout whenever herdr
+  creates a matching git worktree, with a per-layout on/off switch.
 
 If you just want the reference, jump to
 [Keybindings](keybindings/), the

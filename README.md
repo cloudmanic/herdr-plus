@@ -169,6 +169,53 @@ the launch context: `{{.WorkDir}}` (where you launched from), `{{.SessionTitle}}
 as `HERDR_PLUS_*` environment variables. If a command doesn't reference
 `{{.Value}}`, the value is appended as a final shell-quoted argument.
 
+## Worktree auto-layout
+
+herdr-plus can lay a project-style tab layout into a git **worktree** the moment
+herdr creates it. When you run `herdr worktree create` (or open one), herdr makes a
+fresh workspace for the worktree and fires a `worktree.created` event; herdr-plus
+catches it, finds a layout matching the worktree's repo, and opens that layout's
+tabs and panes in the new workspace — every command running — with no keypress.
+This is the plugin system's `[[events]]` hook (declared in
+[`herdr-plugin.toml`](herdr-plugin.toml)) put to work.
+
+Layouts live in `~/.config/herdr-plus/worktrees/`, one TOML file per layout (the
+file name doesn't matter). A layout is a `repo` matcher plus the same `[[tabs]]`
+format projects use:
+
+```toml
+repo = "options-cafe"          # matches the worktree's repo name (case-insensitive)
+
+[[tabs]]
+name = "claude"
+command = "claude --dangerously-skip-permissions --chrome"
+
+[[tabs]]
+name = "lazygit"
+command = "lazygit"
+
+[[tabs]]
+name = "terminal"              # no command — just an empty shell
+```
+
+- **`repo`** (required) matches the new worktree's repository name — the repo's
+  basename, e.g. `options-cafe` — case-insensitively.
+- **`branch`** (optional) narrows a layout to worktrees created on exactly that
+  branch. When more than one layout matches, a branch-specific one wins over a
+  repo-only one.
+- **`[[tabs]]`** is identical to a project's tabs, including multi-pane
+  `[[tabs.panes]]` splits (see [Split panes within a tab](#split-panes-within-a-tab)).
+
+### Turning a layout on and off
+
+The switch is simply **whether the file exists**. A layout in `worktrees/` is on;
+to turn one off, delete the file (or move it out of the directory). With no files
+in `worktrees/` at all, the feature is inert — every worktree fires the event, and
+herdr-plus does nothing when nothing matches.
+
+The handler's output shows up in `herdr plugin log list --plugin
+cloudmanic.herdr-plus`, so you can confirm whether a layout fired.
+
 ## Binding a key
 
 Binding keys to the actions is an optional, one-time edit to **your** herdr

@@ -178,15 +178,24 @@ func (p Project) validate() error {
 	if len(p.Tabs) == 0 {
 		return fmt.Errorf("project %q (%s): needs at least one [[tabs]] entry", p.Name, p.source)
 	}
-	for i, t := range p.Tabs {
+	return validateTabs(p.Name, p.source, p.Tabs)
+}
+
+// validateTabs checks the per-tab rules shared by projects and worktree layouts:
+// every tab needs a name; a tab uses either a single command or [[tabs.panes]],
+// never both; a tab holds at most maxPanesPerTab panes; and every non-root pane's
+// split is "down" or "right". label and source identify the owning config in
+// error messages — a project's name or a layout's repo, and the file it came from.
+func validateTabs(label, source string, tabs []ProjectTab) error {
+	for i, t := range tabs {
 		if strings.TrimSpace(t.Name) == "" {
-			return fmt.Errorf("project %q (%s): tab %d is missing a name", p.Name, p.source, i+1)
+			return fmt.Errorf("%q (%s): tab %d is missing a name", label, source, i+1)
 		}
 		if len(t.Panes) > 0 && strings.TrimSpace(t.Command) != "" {
-			return fmt.Errorf("project %q (%s): tab %q sets both command and [[tabs.panes]]; use one or the other", p.Name, p.source, t.Name)
+			return fmt.Errorf("%q (%s): tab %q sets both command and [[tabs.panes]]; use one or the other", label, source, t.Name)
 		}
 		if len(t.Panes) > maxPanesPerTab {
-			return fmt.Errorf("project %q (%s): tab %q has %d panes; at most %d are allowed", p.Name, p.source, t.Name, len(t.Panes), maxPanesPerTab)
+			return fmt.Errorf("%q (%s): tab %q has %d panes; at most %d are allowed", label, source, t.Name, len(t.Panes), maxPanesPerTab)
 		}
 		for j, pane := range t.Panes {
 			if j == 0 {
@@ -196,7 +205,7 @@ func (p Project) validate() error {
 			case "", SplitDown, SplitRight:
 				// ok — an empty split defaults to "down"
 			default:
-				return fmt.Errorf("project %q (%s): tab %q pane %d has split %q; must be %q or %q", p.Name, p.source, t.Name, j+1, pane.Split, SplitDown, SplitRight)
+				return fmt.Errorf("%q (%s): tab %q pane %d has split %q; must be %q or %q", label, source, t.Name, j+1, pane.Split, SplitDown, SplitRight)
 			}
 		}
 	}
