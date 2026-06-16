@@ -1,0 +1,58 @@
+#
+# Date: 2026-06-15
+# Author: Spicer Matthews (spicer@cloudmanic.com)
+# Copyright: 2026 Cloudmanic Labs, LLC. All rights reserved.
+#
+# Test pipeline for herdr-plus. Runs the build, vet, and `go test ./...` with the
+# race detector on every push and pull request, on Linux + macOS, so we catch
+# platform-specific issues before they ship. Only the root module is exercised;
+# the archived reference code in old/ is a separate nested module and is ignored
+# by `./...`.
+
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs for the same ref when a new push lands.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Verify go.mod is tidy
+        run: |
+          go mod tidy
+          if ! git diff --quiet go.mod go.sum 2>/dev/null; then
+            echo "go.mod / go.sum are not tidy. Run 'make tidy' and commit." >&2
+            git --no-pager diff go.mod go.sum
+            exit 1
+          fi
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...

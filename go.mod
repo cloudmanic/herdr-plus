@@ -1,4 +1,4 @@
-module github.com/cloudmanic/herdr-plus/old
+module github.com/cloudmanic/herdr-plus
 
 go 1.26.2
 
@@ -7,7 +7,7 @@ require (
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/sahilm/fuzzy v0.1.2
+	github.com/sahilm/fuzzy v0.1.3
 )
 
 require (
