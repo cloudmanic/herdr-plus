@@ -21,8 +21,10 @@ the plugin's actions with herdr — no editing of your `config.toml`.
 herdr plugin install cloudmanic/herdr-plus
 ```
 
-herdr clones the repo, runs the manifest's `[[build]]` step (`go build`, needs a
-Go toolchain), and registers the actions. Manage it with `herdr plugin list`,
+herdr clones the repo, runs the manifest's `[[build]]` step, and registers the
+actions. That step **prefers a local Go toolchain** (an exact build of the source)
+and **falls back to downloading the latest prebuilt release binary**, so it works
+**with or without Go**. Manage it with `herdr plugin list`,
 `herdr plugin action list --plugin cloudmanic.herdr-plus`, and
 `herdr plugin uninstall cloudmanic.herdr-plus`.
 
@@ -32,6 +34,24 @@ Go toolchain), and registers the actions. Manage it with `herdr plugin list`,
 make build
 herdr plugin link /path/to/herdr-plus     # or: make plugin-link
 ```
+
+### Just the binary
+
+If you'd rather have `herdr-plus` on your `PATH` (e.g. to run `herdr-plus version`),
+prebuilt binaries are published on every release:
+
+```bash
+# Homebrew (the repo is its own tap)
+brew tap cloudmanic/herdr-plus https://github.com/cloudmanic/herdr-plus
+brew install cloudmanic/herdr-plus/herdr-plus
+
+# or the install script (Linux/macOS, no Homebrew)
+curl -fsSL https://raw.githubusercontent.com/cloudmanic/herdr-plus/main/install.sh | sh
+```
+
+The binary on its own doesn't register the plugin with herdr — use
+`herdr plugin install` (above) for that. Every merge to `main` cuts a new release
+with cross-compiled binaries.
 
 ## Projects
 
