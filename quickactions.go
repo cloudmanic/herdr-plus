@@ -40,11 +40,15 @@ func launchQuickActions() {
 		// Hand the launch context to the picker as a single shell-safe env var.
 		"--env", "HERDR_PLUS_CTX=" + enc,
 	}
-	// Run the overlay pane's shell in the launching directory too, so the picker
-	// and anything it spawns default to the right place.
-	if ctx.WorkDir != "" {
-		args = append(args, "--cwd", ctx.WorkDir)
-	}
+	// IMPORTANT: do not add --cwd here. The manifest registers this pane with a
+	// relative command (./bin/herdr-plus), which herdr resolves against the pane's
+	// working directory — so the pane must run in the plugin's own install dir for
+	// that path to resolve. Passing --cwd <launch dir> made herdr look for
+	// ./bin/herdr-plus inside the launch directory and fail to spawn the picker.
+	// The launch directory still reaches the picker — and the action it runs —
+	// through HERDR_PLUS_CTX (ctx.WorkDir), which sets each command's cmd.Dir and
+	// the per-repo action lookup. So --cwd was purely cosmetic; dropping it loses
+	// nothing and matches how the projects pane (which never set it) already works.
 
 	cmd := exec.Command(herdr, args...)
 	cmd.Stdout = os.Stdout
