@@ -25,11 +25,21 @@ import (
 //go:embed examples
 var embeddedExamples embed.FS
 
-// configBaseDir returns the root configuration directory, ~/.config/herdr-plus.
-// It honors $XDG_CONFIG_HOME when set (the cross-platform convention) and
-// otherwise falls back to ~/.config so the location is the same on macOS and
-// Linux.
+// configBaseDir returns the root configuration directory for herdr-plus's
+// projects and quick-actions.
+//
+// When herdr runs us as a plugin it sets HERDR_PLUGIN_CONFIG_DIR to the standard,
+// herdr-managed per-plugin config directory
+// (~/.config/herdr/plugins/config/cloudmanic.herdr-plus). That is the canonical
+// home for our config — herdr provisions it, isolates it per plugin, and keeps it
+// across uninstall/upgrade — so we prefer it whenever it is set.
+//
+// Outside herdr (running the binary directly, dev, tests) the variable is unset,
+// so we fall back to the legacy ~/.config/herdr-plus, honoring $XDG_CONFIG_HOME.
 func configBaseDir() (string, error) {
+	if d := os.Getenv("HERDR_PLUGIN_CONFIG_DIR"); d != "" {
+		return d, nil
+	}
 	if x := os.Getenv("XDG_CONFIG_HOME"); x != "" {
 		return filepath.Join(x, "herdr-plus"), nil
 	}

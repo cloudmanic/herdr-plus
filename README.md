@@ -53,15 +53,30 @@ The binary on its own doesn't register the plugin with herdr — use
 `herdr plugin install` (above) for that. Every merge to `main` cuts a new release
 with cross-compiled binaries.
 
+## Configuration
+
+herdr-plus keeps its config in herdr's managed plugin directory — find it with:
+
+```bash
+herdr plugin config-dir cloudmanic.herdr-plus
+# → ~/.config/herdr/plugins/config/cloudmanic.herdr-plus
+```
+
+Inside it, `projects/` holds your [project templates](#projects) and
+`quick-actions/` your [actions](#quick-actions). herdr provisions this directory
+and keeps it across uninstall/upgrade. (Running the binary *outside* herdr falls
+back to `~/.config/herdr-plus/`, honoring `$XDG_CONFIG_HOME`.)
+
 ## Projects
 
 Pick a project from a full-screen fuzzy browser and herdr-plus builds its whole
 workspace. Trigger it from herdr's plugin action menu, or
 [bind a key](#binding-a-key) — the action is `cloudmanic.herdr-plus.projects`.
 
-A project is one TOML file in `~/.config/herdr-plus/projects/` (honoring
-`$XDG_CONFIG_HOME`). The file name doesn't matter; add a file to add a project,
-delete it to remove it. With no files there, the browser shows an onboarding card.
+A project is one TOML file in the `projects/` subdir of
+[herdr-plus's config dir](#configuration). The file name doesn't matter; add a
+file to add a project, delete it to remove it. With no files there, the browser
+shows an onboarding card.
 
 ```toml
 name = "Options Cafe"
@@ -116,9 +131,9 @@ A tab uses *either* `command` *or* `[[tabs.panes]]`, not both.
 
 A fuzzy launcher for one-off commands. Trigger it (action
 `cloudmanic.herdr-plus.quick-actions`), fuzzy-pick an action, and it runs in the
-directory you launched from. Actions are TOML files in
-`~/.config/herdr-plus/quick-actions/` (seeded with editable examples on first
-run). A repo can also ship its own in `<repo>/.herdr-plus/quick-actions/`, shown
+directory you launched from. Actions are TOML files in the `quick-actions/` subdir
+of [herdr-plus's config dir](#configuration) (seeded with editable examples on
+first run). A repo can also ship its own in `<repo>/.herdr-plus/quick-actions/`, shown
 under a **Project** heading above your **Global** ones — this repo ships
 `make build` / `make test` as a live example.
 
