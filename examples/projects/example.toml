@@ -1,0 +1,40 @@
+# A project is a herdr workspace template. Save one *.toml file per project in
+# ~/.config/herdr-plus/projects/ — the file name does not matter.
+#
+# Opening a project (the Projects action — bind a key to it, see the README)
+# creates a new herdr workspace rooted at `working_dir`, labeled `name`, with one
+# tab per [[tabs]] entry (in order). Each tab runs its `command` on startup; omit
+# `command` for an empty terminal.
+
+name = "Options Cafe"
+description = "The main options.cafe monorepo"
+group = "Cloudmanic"                                      # optional: cluster a client's projects under a heading
+working_dir = "~/Development/options-cafe/options.cafe"   # ~ and $VARS expand
+
+[[tabs]]
+name = "claude"
+command = "claude --dangerously-skip-permissions --chrome"
+
+[[tabs]]
+name = "lazygit"
+command = "lazygit"
+
+[[tabs]]
+name = "editor"
+command = "spiceedit"
+
+# A tab can be split into up to 4 panes. Instead of a single `command`, give it
+# [[tabs.panes]]. Each pane after the first sets `split = "down"` (stacked) or
+# "right" (side by side) — how it splits off the previous pane (default "down").
+[[tabs]]
+name = "server"
+
+[[tabs.panes]]
+command = "php artisan serve"
+
+[[tabs.panes]]
+command = "npm run dev"
+split = "down"
+
+[[tabs]]
+name = "terminal"   # no command — just an empty shell

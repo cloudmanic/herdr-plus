@@ -15,7 +15,7 @@ id = "cloudmanic.herdr-plus"
 name = "Herdr Plus"
 version = "0.1.0"
 min_herdr_version = "0.7.0"
-description = "An add-on platform for herdr. Plugin-first rebuild in progress; Projects coming next."
+description = "An add-on platform for herdr. Projects: declarative workspace templates you fuzzy-pick to spin up a whole herdr workspace."
 platforms = ["linux", "macos", "windows"]
 
 # Compile the binary from source at install time. herdr runs this once, after you
@@ -23,6 +23,15 @@ platforms = ["linux", "macos", "windows"]
 # toolchain; the resulting ./bin/herdr-plus is what the entry points below invoke.
 [[build]]
 command = ["go", "build", "-o", "bin/herdr-plus", "."]
+
+# projects — the flagship action. Opens a full-screen browser to fuzzy-pick a
+# project (a declarative set of tabs/panes from ~/.config/herdr-plus/projects/)
+# and spins up its whole herdr workspace. Bind a key to it or run it from herdr's
+# action menu — see the README.
+[[actions]]
+id = "projects"
+title = "Herdr Plus: Projects"
+command = ["./bin/herdr-plus", "projects"]
 
 # ping — a smoke-test action that proves the plugin loop end to end: it talks to
 # herdr over the socket and prints the focused pane/workspace. Its output is
