@@ -1,10 +1,13 @@
 # herdr-plus
 
 herdr-plus is an add-on for [herdr](https://herdr.dev), built as a first-class
-[herdr plugin](https://herdr.dev/docs/plugins/). Its flagship feature is
-**Projects**: declarative herdr-workspace templates you fuzzy-pick to spin up a
-whole workspace — every tab and pane created, every startup command running — in
-one keypress.
+[herdr plugin](https://herdr.dev/docs/plugins/). It adds two things:
+
+- **[Projects](#projects)** — declarative herdr-workspace templates you fuzzy-pick
+  to spin up a whole workspace (every tab and pane, every startup command) in one
+  keypress.
+- **[Quick Actions](#quick-actions)** — a fuzzy launcher for one-off
+  actions/scripts, run in the directory you launched from.
 
 > This is a clean, plugin-first rebuild. The previous standalone-binary
 > implementation lives under [`old/`](old/) as reference and is not built.
@@ -89,11 +92,55 @@ split = "down"
 
 A tab uses *either* `command` *or* `[[tabs.panes]]`, not both.
 
+## Quick Actions
+
+A fuzzy launcher for one-off commands. Trigger it (action
+`cloudmanic.herdr-plus.quick-actions`), fuzzy-pick an action, and it runs in the
+directory you launched from. Actions are TOML files in
+`~/.config/herdr-plus/quick-actions/` (seeded with editable examples on first
+run). A repo can also ship its own in `<repo>/.herdr-plus/quick-actions/`, shown
+under a **Project** heading above your **Global** ones.
+
+There are three action types:
+
+```toml
+# command (default) — runs immediately
+name = "GitHub"
+command = "open https://github.com"
+```
+
+```toml
+# select — pick from a second fuzzy list; the choice becomes {{.Value}}
+name = "Open Repo"
+type = "select"
+command = "open https://github.com/cloudmanic/{{.Value}}"
+
+[[options]]
+label = "Herdr Plus"
+value = "herdr-plus"
+```
+
+```toml
+# form — type a value that becomes {{.Value}}
+name = "Search Google"
+type = "form"
+command = "open 'https://www.google.com/search?q={{.Value | urlquery}}'"
+
+[form]
+prompt = "Search Google for"
+```
+
+The `command` is a [Go template](https://pkg.go.dev/text/template) rendered against
+the launch context: `{{.WorkDir}}` (where you launched from), `{{.SessionTitle}}`
+(the workspace label), `{{.Value}}` (select/form input), and more — also exported
+as `HERDR_PLUS_*` environment variables. If a command doesn't reference
+`{{.Value}}`, the value is appended as a final shell-quoted argument.
+
 ## Binding a key
 
-Binding a key to the Projects action is an optional, one-time edit to **your**
-herdr `config.toml` (`~/.config/herdr/config.toml`). Add a `[[keys.command]]`
-entry with `type = "plugin_action"` whose `command` is the action id:
+Binding keys to the actions is an optional, one-time edit to **your** herdr
+`config.toml` (`~/.config/herdr/config.toml`). Add `[[keys.command]]` entries with
+`type = "plugin_action"` whose `command` is the action id:
 
 ```toml
 [[keys.command]]
@@ -101,6 +148,12 @@ key = "prefix+up"
 type = "plugin_action"
 command = "cloudmanic.herdr-plus.projects"
 description = "herdr-plus: projects"
+
+[[keys.command]]
+key = "prefix+down"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.quick-actions"
+description = "herdr-plus: quick actions"
 ```
 
 Then `herdr server reload-config` (or restart herdr) and press your herdr prefix

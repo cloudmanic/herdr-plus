@@ -1,0 +1,26 @@
+# A "select" action: choosing it shows a second fuzzy list of options, and the
+# option you pick becomes {{.Value}} in the command.
+#
+# Each option has a `label` (shown in the list) and a `value` (substituted into
+# the command). If `value` is omitted, the label is used as the value too. An
+# optional `description` shows dim text next to the label.
+
+name = "Open Repo on GitHub"
+description = "Pick one of our repos and open it"
+type = "select"
+command = "open https://github.com/cloudmanic/{{.Value}}"
+
+[[options]]
+label = "Herdr Plus"
+value = "herdr-plus"
+description = "cloudmanic/herdr-plus"
+
+[[options]]
+label = "Options Cafe"
+value = "options-cafe"
+description = "cloudmanic/options-cafe"
+
+[[options]]
+label = "Skyclerk"
+value = "skyclerk"
+description = "cloudmanic/skyclerk"

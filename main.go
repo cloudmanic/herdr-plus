@@ -17,10 +17,11 @@ import (
 // registers it from herdr-plugin.toml and runs this binary with a subcommand per
 // manifest entry point.
 //
-//   - "projects" is the Projects action herdr runs from a keybinding: it asks
-//     herdr to open the browser as a zoomed plugin pane.
-//   - "projects-ui" is the browser itself; herdr runs it inside that zoomed pane
-//     (the `picker` entrypoint), so end users never run it directly.
+//   - "projects" / "quick-actions" are the actions herdr runs from a keybinding:
+//     each asks herdr to open its UI as a plugin pane.
+//   - "projects-ui" / "quick-actions-ui" are those UIs; herdr runs them inside the
+//     pane it opens (the `picker` / `quick-actions-picker` entrypoints), so end
+//     users never run them directly.
 //   - "ping" is a smoke test that proves the plugin loop end to end.
 //
 // The bare binary has no launcher of its own, so it just prints usage.
@@ -32,6 +33,12 @@ func main() {
 			return
 		case "projects-ui":
 			runProjectsUI()
+			return
+		case "quick-actions":
+			launchQuickActions()
+			return
+		case "quick-actions-ui":
+			runQuickActionsUI()
 			return
 		case "ping":
 			runPing()

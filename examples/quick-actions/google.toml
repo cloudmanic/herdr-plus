@@ -1,0 +1,6 @@
+# Another plain command action.
+
+name = "Google"
+description = "Open https://google.com"
+type = "command"
+command = "open https://google.com"
