@@ -119,7 +119,8 @@ A fuzzy launcher for one-off commands. Trigger it (action
 directory you launched from. Actions are TOML files in
 `~/.config/herdr-plus/quick-actions/` (seeded with editable examples on first
 run). A repo can also ship its own in `<repo>/.herdr-plus/quick-actions/`, shown
-under a **Project** heading above your **Global** ones.
+under a **Project** heading above your **Global** ones — this repo ships
+`make build` / `make test` as a live example.
 
 There are three action types:
 
