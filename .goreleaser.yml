@@ -26,13 +26,11 @@ builds:
     main: .
     env:
       - CGO_ENABLED=0
-    goos: [linux, darwin, windows]
+    # Linux + macOS only. The manifest declares platforms = ["linux", "macos"]
+    # (we don't test on Windows, and the socket client + sh-based build step
+    # aren't validated there), so we don't ship Windows binaries to match.
+    goos: [linux, darwin]
     goarch: [amd64, arm64]
-    # Skip windows/arm64 — less common, and we'd rather not ship binaries we
-    # can't easily test. Add it back if there's demand.
-    ignore:
-      - goos: windows
-        goarch: arm64
     ldflags:
       - -s -w
 
@@ -40,9 +38,6 @@ archives:
   - id: default
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     formats: [tar.gz]
-    format_overrides:
-      - goos: windows
-        formats: [zip]
     files:
       - LICENSE*
       - README*

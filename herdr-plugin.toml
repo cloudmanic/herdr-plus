@@ -8,16 +8,17 @@
 # repo, runs the [[build]] step below, and registers the entry points), or for
 # local development `herdr plugin link .` from a checkout.
 #
-# This is the plugin-first rebuild. Phase 0 ships only a `ping` smoke test that
-# proves the plugin loop; the Projects feature and friends arrive in later phases.
+# This is the plugin-first rebuild. It ships Projects (declarative workspace
+# templates you fuzzy-pick) and Quick Actions (a fuzzy launcher for one-off
+# scripts), plus a `ping` smoke test that proves the plugin loop end to end.
 
 id = "cloudmanic.herdr-plus"
 name = "Herdr Plus"
 # Kept in sync with internal/version/version.go by .github/workflows/release.yml.
 version = "0.1.4"
 min_herdr_version = "0.7.0"
-description = "An add-on platform for herdr. Projects: declarative workspace templates you fuzzy-pick to spin up a whole herdr workspace."
-platforms = ["linux", "macos", "windows"]
+description = "An add-on platform for herdr. Projects: fuzzy-pick a declarative template to spin up a whole workspace — every tab, pane, and startup command. Quick Actions: a fuzzy launcher for one-off scripts, run in the directory you launched from."
+platforms = ["linux", "macos"]
 
 # Produce the binary at install time. herdr runs this once, after you confirm a
 # GitHub install and before registering the plugin. The script prefers a local Go
