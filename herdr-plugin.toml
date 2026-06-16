@@ -1,0 +1,33 @@
+#
+# Date: 2026-06-15
+# Author: Spicer Matthews (spicer@cloudmanic.com)
+# Copyright: 2026 Cloudmanic Labs, LLC. All rights reserved.
+#
+# herdr-plugin.toml registers herdr-plus with herdr as a first-class plugin.
+# Install it with `herdr plugin install cloudmanic/herdr-plus` (herdr clones this
+# repo, runs the [[build]] step below, and registers the entry points), or for
+# local development `herdr plugin link .` from a checkout.
+#
+# This is the plugin-first rebuild. Phase 0 ships only a `ping` smoke test that
+# proves the plugin loop; the Projects feature and friends arrive in later phases.
+
+id = "cloudmanic.herdr-plus"
+name = "Herdr Plus"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "An add-on platform for herdr. Plugin-first rebuild in progress; Projects coming next."
+platforms = ["linux", "macos", "windows"]
+
+# Compile the binary from source at install time. herdr runs this once, after you
+# confirm a GitHub install and before registering the plugin. It needs a Go
+# toolchain; the resulting ./bin/herdr-plus is what the entry points below invoke.
+[[build]]
+command = ["go", "build", "-o", "bin/herdr-plus", "."]
+
+# ping — a smoke-test action that proves the plugin loop end to end: it talks to
+# herdr over the socket and prints the focused pane/workspace. Its output is
+# captured in `herdr plugin log list --plugin cloudmanic.herdr-plus`.
+[[actions]]
+id = "ping"
+title = "Herdr Plus: ping"
+command = ["./bin/herdr-plus", "ping"]

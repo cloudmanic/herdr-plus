@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cloudmanic/herdr-plus/internal/version"
+	"github.com/cloudmanic/herdr-plus/old/internal/version"
 )
 
 // main dispatches between the two modes of the binary. The bare binary

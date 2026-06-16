@@ -1,0 +1,14 @@
+# Compiled binary (same name as the module; anchored to repo root)
+/herdr-plus
+
+# Build output (Makefile ./bin, GoReleaser ./dist)
+/bin/
+/dist/
+
+# Go build & test artifacts
+*.test
+*.out
+coverage.html
+
+# Editor / OS cruft
+.DS_Store

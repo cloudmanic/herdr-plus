@@ -1,4 +1,4 @@
-module github.com/cloudmanic/herdr-plus
+module github.com/cloudmanic/herdr-plus/old
 
 go 1.26.2
 
