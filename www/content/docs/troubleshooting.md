@@ -76,9 +76,10 @@ the `working_dir` (remember `~` and `$VARS` expand). See [Projects](../projects/
 
 ## My worktree didn't get its layout
 
-Creating a git worktree opened a plain workspace instead of your tabs. The
-[worktree auto-layout](../worktrees/) handler runs on herdr's `worktree.created`
-event and logs why it did or didn't act — check the plugin log first:
+Creating or opening a git worktree gave you a plain workspace instead of your
+tabs. The [worktree auto-layout](../worktrees/) handler runs on herdr's
+`worktree.created` and `worktree.opened` events and logs why it did or didn't act
+— check the plugin log first:
 
 ```bash
 herdr plugin log list --plugin cloudmanic.herdr-plus
@@ -86,6 +87,11 @@ herdr plugin log list --plugin cloudmanic.herdr-plus
 
 Common causes:
 
+- **The worktree wasn't created through herdr.** herdr only fires these events for
+  worktrees it creates or opens itself (`herdr worktree create`/`open` or its
+  right-click worktree dialog). A worktree made with plain `git worktree add` — or
+  from lazygit or another tool — is invisible to herdr, so no event fires and no
+  layout applies. The plugin log will have **no** `on-worktree` entry at all.
 - **No file for that repo.** A layout is on only if a file for it exists in
   `worktrees/`. Confirm the file is there (not in `projects/`) and hasn't been
   deleted or moved.

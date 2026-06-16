@@ -272,6 +272,30 @@ func (c *herdrClient) focusedPaneID() (string, error) {
 	return "", errors.New("no focused pane")
 }
 
+// workspacePaneCount returns how many panes currently live in the given
+// workspace. The worktree handler uses it as an idempotency guard: a freshly
+// created or opened worktree workspace has exactly one (root) pane, so a count
+// above one means the layout was already applied — and we should not apply it
+// again. On any socket error it returns 0 so the caller fails open (proceeds) and
+// degrades to the old, unguarded behavior rather than skipping wrongly.
+func (c *herdrClient) workspacePaneCount(workspaceID string) (int, error) {
+	var out struct {
+		Panes []struct {
+			WorkspaceID string `json:"workspace_id"`
+		} `json:"panes"`
+	}
+	if err := c.call("pane.list", map[string]any{}, &out); err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, p := range out.Panes {
+		if p.WorkspaceID == workspaceID {
+			n++
+		}
+	}
+	return n, nil
+}
+
 // paneGet fetches metadata for a single pane, including its working directory
 // and the tab/workspace it belongs to.
 func (c *herdrClient) paneGet(paneID string) (paneInfo, error) {

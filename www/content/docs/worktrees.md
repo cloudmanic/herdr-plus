@@ -1,24 +1,26 @@
 ---
 title: "Worktree Auto-Layout"
-description: "Automatically lay a project-style tab layout into a git worktree the moment herdr creates it, driven by the plugin's worktree.created event — with a per-layout on/off switch."
+description: "Automatically lay a project-style tab layout into a git worktree the moment herdr creates or opens it, driven by the plugin's worktree.created and worktree.opened events."
 weight: 65
 ---
 
 herdr-plus can open a project-style tab layout **automatically** when herdr
-creates a git worktree — no keypress, no picker. It's the plugin system's
-[`[[events]]`](https://herdr.dev/docs/plugins/) hook put to work: herdr-plus
-subscribes to the `worktree.created` event and fills the new worktree's workspace
-for you.
+creates or opens a git worktree — no keypress, no picker. It's the plugin
+system's [`[[events]]`](https://herdr.dev/docs/plugins/) hook put to work:
+herdr-plus subscribes to the `worktree.created` and `worktree.opened` events and
+fills the worktree's workspace for you.
 
 ## How it works
 
-When you run `herdr worktree create` (or `herdr worktree open`), herdr:
+When you run `herdr worktree create` (or `herdr worktree open`, or use herdr's
+right-click worktree dialog), herdr:
 
-1. Creates the git worktree.
+1. Creates or opens the git worktree.
 2. Makes a fresh herdr **workspace** for it, rooted at the worktree's directory.
-3. Fires a `worktree.created` event.
+3. Fires a `worktree.created` event (for a new worktree) or `worktree.opened`
+   event (for an existing one).
 
-herdr-plus catches that event, looks at the worktree's **repo** (and branch),
+herdr-plus catches either event, looks at the worktree's **repo** (and branch),
 finds a matching layout, and opens that layout's tabs and panes in the workspace
 herdr just made — running every startup command. Because herdr has already
 created the workspace and its first tab, herdr-plus only has to fill it in.
@@ -100,9 +102,9 @@ directory at all, it's simply inert.
 
 ## Where it runs
 
-The handler is the plugin's `worktree.created` event, declared in
-`herdr-plugin.toml`. herdr runs it for you (you never invoke it by hand), and its
-output is captured in the plugin log:
+The handler is wired to the plugin's `worktree.created` and `worktree.opened`
+events, declared in `herdr-plugin.toml`. herdr runs it for you (you never invoke
+it by hand), and its output is captured in the plugin log:
 
 ```bash
 herdr plugin log list --plugin cloudmanic.herdr-plus
