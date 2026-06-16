@@ -49,8 +49,8 @@ upgrade**, so your projects and quick actions survive a reinstall.
   time you open the launcher.
 - **`worktrees/`** holds your [worktree auto-layouts](../worktrees/). Each `*.toml`
   defines one layout that fires when herdr creates a matching git worktree. This
-  directory is **never created or seeded** — add it yourself to opt in, and set a
-  layout's `on_worktree_created = false` to keep it on disk without firing it.
+  directory is **never created or seeded** — add it yourself to opt in. A layout
+  is on simply by existing; delete the file to turn it off.
 
 ## The file-per-entry model
 

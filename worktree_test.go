@@ -23,10 +23,6 @@ func mapEnv(m map[string]string) func(string) string {
 	return func(k string) string { return m[k] }
 }
 
-// boolPtr returns a pointer to b, for setting the optional
-// WorktreeLayout.OnWorktreeCreated field in tests (nil means "default on").
-func boolPtr(b bool) *bool { return &b }
-
 // TestParseWorktreeEventReal parses the real payload plus the HERDR_* env vars
 // herdr sets, and confirms every field herdr-plus relies on is extracted.
 func TestParseWorktreeEventReal(t *testing.T) {
@@ -128,50 +124,8 @@ func TestMatchWorktreeLayout(t *testing.T) {
 	}
 }
 
-// TestWorktreeLayoutOnCreateToggle covers the per-layout on/off switch: an absent
-// `on_worktree_created` key defaults on, `on_worktree_created = false` is skipped
-// by the matcher (and does not suppress an otherwise-matching active layout), and
-// switchedOffMatch reports a switched-off layout for the handler's log message.
-func TestWorktreeLayoutOnCreateToggle(t *testing.T) {
-	ev, err := parseWorktreeEvent(realEventJSON, mapEnv(nil))
-	if err != nil {
-		t.Fatalf("parseWorktreeEvent: %v", err)
-	}
-
-	// appliesOnCreate: nil defaults on; explicit true/false are honored.
-	if !(WorktreeLayout{}).appliesOnCreate() {
-		t.Fatal("a layout with no on_worktree_created key should default to on")
-	}
-	if !(WorktreeLayout{OnWorktreeCreated: boolPtr(true)}).appliesOnCreate() {
-		t.Fatal("on_worktree_created = true should be on")
-	}
-	if (WorktreeLayout{OnWorktreeCreated: boolPtr(false)}).appliesOnCreate() {
-		t.Fatal("on_worktree_created = false should be off")
-	}
-
-	off := WorktreeLayout{Repo: "wt-probe-repo", OnWorktreeCreated: boolPtr(false), Tabs: []ProjectTab{{Name: "x"}}, source: "off.toml"}
-
-	// A switched-off layout is not opened...
-	if _, ok := matchWorktreeLayout([]WorktreeLayout{off}, ev); ok {
-		t.Fatal("a switched-off layout should not be matched for deployment")
-	}
-	// ...but is reported as a switched-off match so the handler can explain itself.
-	if got, ok := switchedOffMatch([]WorktreeLayout{off}, ev); !ok || got.source != "off.toml" {
-		t.Fatalf("switchedOffMatch = %q, %v; want off.toml, true", got.source, ok)
-	}
-
-	// A switched-off branch-specific layout must not suppress an active repo-only one.
-	on := WorktreeLayout{Repo: "wt-probe-repo", Tabs: []ProjectTab{{Name: "y"}}, source: "on.toml"}
-	offBranch := WorktreeLayout{Repo: "wt-probe-repo", Branch: "probe-wt", OnWorktreeCreated: boolPtr(false), Tabs: []ProjectTab{{Name: "z"}}, source: "offbranch.toml"}
-	if got, ok := matchWorktreeLayout([]WorktreeLayout{on, offBranch}, ev); !ok || got.source != "on.toml" {
-		t.Fatalf("match = %q, %v; want on.toml (switched-off branch layout must not win or suppress)", got.source, ok)
-	}
-}
-
 // TestWorktreeLayoutValidate confirms a layout needs a repo and at least one tab,
-// and that it inherits the shared per-tab validation (a bad split is rejected). A
-// switched-off layout is still validated so a typo cannot hide behind
-// on_worktree_created = false.
+// and that it inherits the shared per-tab validation (a bad split is rejected).
 func TestWorktreeLayoutValidate(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -182,7 +136,6 @@ func TestWorktreeLayoutValidate(t *testing.T) {
 		{"no repo", WorktreeLayout{Tabs: []ProjectTab{{Name: "t"}}}, true},
 		{"no tabs", WorktreeLayout{Repo: "r"}, true},
 		{"bad split", WorktreeLayout{Repo: "r", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {Split: "sideways"}}}}}, true},
-		{"switched off still validated", WorktreeLayout{Repo: "r", OnWorktreeCreated: boolPtr(false)}, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -194,8 +147,8 @@ func TestWorktreeLayoutValidate(t *testing.T) {
 }
 
 // TestLoadWorktreeLayouts round-trips real files through the loader: a missing
-// directory yields nothing (the feature is opt-in), a valid layout loads with its
-// tabs intact, and an `on_worktree_created = false` key is parsed into the toggle.
+// directory yields nothing (the feature is opt-in), and valid layouts load with
+// their tabs intact, sorted by file name.
 func TestLoadWorktreeLayouts(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
@@ -225,14 +178,13 @@ command = "lazygit"
 		t.Fatal(err)
 	}
 
-	// A second layout that is explicitly switched off.
-	switchedOff := `repo = "bevio"
-on_worktree_created = false
+	// A second, repo-only layout to confirm multiple files load and sort by name.
+	second := `repo = "bevio"
 
 [[tabs]]
 name = "terminal"
 `
-	if err := os.WriteFile(filepath.Join(dir, "bevio.toml"), []byte(switchedOff), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "bevio.toml"), []byte(second), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -244,11 +196,11 @@ name = "terminal"
 		t.Fatalf("got %d layouts, want 2", len(got))
 	}
 	// Sorted by file name: bevio.toml then options-cafe.toml.
-	if got[0].Repo != "bevio" || got[0].appliesOnCreate() {
-		t.Fatalf("loaded layout[0] = %+v, want bevio switched off", got[0])
+	if got[0].Repo != "bevio" || len(got[0].Tabs) != 1 {
+		t.Fatalf("loaded layout[0] = %+v, want bevio with 1 tab", got[0])
 	}
-	if got[1].Repo != "options-cafe" || got[1].Branch != "main" || len(got[1].Tabs) != 2 || !got[1].appliesOnCreate() {
-		t.Fatalf("loaded layout[1] = %+v, want options-cafe/main, 2 tabs, on", got[1])
+	if got[1].Repo != "options-cafe" || got[1].Branch != "main" || len(got[1].Tabs) != 2 {
+		t.Fatalf("loaded layout[1] = %+v, want options-cafe/main with 2 tabs", got[1])
 	}
 
 	// A malformed file fails the whole load with a naming error.

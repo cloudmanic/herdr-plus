@@ -86,12 +86,12 @@ herdr plugin log list --plugin cloudmanic.herdr-plus
 
 Common causes:
 
+- **No file for that repo.** A layout is on only if a file for it exists in
+  `worktrees/`. Confirm the file is there (not in `projects/`) and hasn't been
+  deleted or moved.
 - **No matching layout.** The log says `no worktree layout matches repo …`. The
   `repo` in your layout must match the worktree's repo name (its basename),
-  case-insensitively. Confirm the file is in `worktrees/` (not `projects/`).
-- **The layout is switched off.** The log says `… matches repo … but
-  on_worktree_created = false`. Remove `on_worktree_created = false` (or set it to
-  `true`) in that layout file.
+  case-insensitively.
 - **A branch mismatch.** A layout with a `branch` only fires for worktrees created
   on exactly that branch. Drop the `branch` line to apply to every branch.
 - **A config typo.** An invalid file fails the whole load with an error naming the

@@ -292,21 +292,6 @@ name = "deploy"
 command = "./scripts/release.sh"
 ```
 
-### Pausing a layout without deleting it
-
-Set `on_worktree_created = false` to keep the file but stop it firing — worktrees
-of that repo then open as a plain workspace.
-
-```toml
-# options-cafe.toml
-repo = "options-cafe"
-on_worktree_created = false     # keep the tabs, just don't auto-open them
-
-[[tabs]]
-name = "claude"
-command = "claude"
-```
-
 ## See also
 
 - [Actions Reference](../actions/) — the full action format.

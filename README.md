@@ -208,28 +208,13 @@ name = "terminal"              # no command — just an empty shell
 
 ### Turning a layout on and off
 
-The feature is **opt-in**: with no files in `worktrees/`, it's inert — every
-worktree fires the event, and herdr-plus does nothing when nothing matches.
-
-Each layout also carries its own on/off switch, named after the event it gates.
-Omit `on_worktree_created` (or set it `true`) and the layout opens on worktree
-creation; set **`on_worktree_created = false`** to keep the file on disk but stop
-it firing — creating a worktree of that repo then just makes a plain workspace,
-exactly as if the file weren't there. Handy for pausing a layout without deleting
-your tab list.
-
-```toml
-repo = "options-cafe"
-on_worktree_created = false     # keep the layout, but don't open it
-
-[[tabs]]
-name = "claude"
-command = "claude"
-```
+The switch is simply **whether the file exists**. A layout in `worktrees/` is on;
+to turn one off, delete the file (or move it out of the directory). With no files
+in `worktrees/` at all, the feature is inert — every worktree fires the event, and
+herdr-plus does nothing when nothing matches.
 
 The handler's output shows up in `herdr plugin log list --plugin
-cloudmanic.herdr-plus` — including a line noting when a matching layout was skipped
-because it's switched off, so it's easy to confirm the switch.
+cloudmanic.herdr-plus`, so you can confirm whether a layout fired.
 
 ## Binding a key
 

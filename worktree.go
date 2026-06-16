@@ -37,16 +37,6 @@ type WorktreeLayout struct {
 	// branch-specific layout is preferred over a repo-only one when both match.
 	Branch string `toml:"branch"`
 
-	// OnWorktreeCreated is the per-layout on/off switch for the only thing a layout
-	// does: open itself when herdr fires worktree.created. It is named after that
-	// event so the key says exactly what it gates. It is a pointer so an omitted
-	// key is distinguishable from an explicit `on_worktree_created = false`:
-	// omitted (nil) means on, matching the rule that simply having a layout file
-	// turns the feature on. Set `on_worktree_created = false` to keep the layout on
-	// disk but stop it opening — creating a worktree of its repo then just makes a
-	// plain workspace, as if no layout existed.
-	OnWorktreeCreated *bool `toml:"on_worktree_created"`
-
 	// Tabs is the ordered list of tabs to open in the worktree's workspace,
 	// identical in shape to a Project's tabs (a single `command`, or multiple
 	// [[tabs.panes]] splits).
@@ -57,18 +47,8 @@ type WorktreeLayout struct {
 	source string
 }
 
-// appliesOnCreate reports whether the layout should open when a worktree is
-// created. A layout with no `on_worktree_created` key (the field is nil) is on by
-// default — the presence of the file is the opt-in — so only an explicit
-// `on_worktree_created = false` turns it off.
-func (l WorktreeLayout) appliesOnCreate() bool {
-	return l.OnWorktreeCreated == nil || *l.OnWorktreeCreated
-}
-
 // validate checks that a layout is internally consistent before we ever act on a
-// worktree event, turning config mistakes into clear errors at load time. A
-// switched-off layout is still validated so a typo never hides behind
-// `on_worktree_created = false`, surfacing only later when it is switched back on.
+// worktree event, turning config mistakes into clear errors at load time.
 func (l WorktreeLayout) validate() error {
 	if strings.TrimSpace(l.Repo) == "" {
 		return fmt.Errorf("worktree layout %s: repo is required", l.source)
@@ -82,8 +62,7 @@ func (l WorktreeLayout) validate() error {
 // matches reports whether this layout applies to the given worktree event. The
 // repo must match (against either the repo name or the basename of the repo
 // root, case-insensitively); a layout with a Branch additionally requires the
-// worktree's branch to match. It does not consider the on/off switch — that is
-// the caller's concern, so a switched-off layout can still be recognized for logging.
+// worktree's branch to match.
 func (l WorktreeLayout) matches(ev worktreeEvent) bool {
 	repo := strings.TrimSpace(l.Repo)
 	if !strings.EqualFold(repo, ev.RepoName) && !strings.EqualFold(repo, filepath.Base(ev.RepoRoot)) {
@@ -155,16 +134,15 @@ func loadWorktreeLayouts() ([]WorktreeLayout, error) {
 	return layouts, nil
 }
 
-// matchWorktreeLayout returns the best applicable layout for an event, if any.
-// Switched-off layouts are skipped entirely — they neither open nor suppress an
-// otherwise-matching active layout. Among the active matches a branch-specific
-// one wins over a repo-only one (it is more specific); ties break by file name,
-// which loadWorktreeLayouts already sorts by.
+// matchWorktreeLayout returns the best matching layout for an event, if any.
+// Among all matching layouts a branch-specific one wins over a repo-only one (it
+// is more specific); ties break by file name, which loadWorktreeLayouts already
+// sorts by.
 func matchWorktreeLayout(layouts []WorktreeLayout, ev worktreeEvent) (WorktreeLayout, bool) {
 	var best WorktreeLayout
 	found := false
 	for _, l := range layouts {
-		if !l.appliesOnCreate() || !l.matches(ev) {
+		if !l.matches(ev) {
 			continue
 		}
 		if !found {
@@ -177,20 +155,6 @@ func matchWorktreeLayout(layouts []WorktreeLayout, ev worktreeEvent) (WorktreeLa
 		}
 	}
 	return best, found
-}
-
-// switchedOffMatch returns a layout that would have matched the event but is
-// turned off (on_worktree_created = false). It exists only so the handler can log
-// the difference between "no layout for this repo" and "a layout exists but you
-// switched it off" — a useful breadcrumb when a worktree opens plain and you
-// expected tabs.
-func switchedOffMatch(layouts []WorktreeLayout, ev worktreeEvent) (WorktreeLayout, bool) {
-	for _, l := range layouts {
-		if !l.appliesOnCreate() && l.matches(ev) {
-			return l, true
-		}
-	}
-	return WorktreeLayout{}, false
 }
 
 // worktreeEvent is the subset of the `worktree.created` payload herdr-plus acts
@@ -270,13 +234,9 @@ func runOnWorktreeCreated(_ []string) {
 
 	layout, ok := matchWorktreeLayout(layouts, ev)
 	if !ok {
-		// No applicable layout for this repo/branch — the expected case for most
-		// worktrees. Distinguish "nothing configured" from "configured but switched
-		// off" so the plugin log explains why a worktree opened plain.
-		if off, switchedOff := switchedOffMatch(layouts, ev); switchedOff {
-			fmt.Printf("herdr-plus: worktree layout %q matches repo %q but on_worktree_created = false; nothing to do.\n", off.source, ev.RepoName)
-			return
-		}
+		// No layout for this repo/branch — the expected case for most worktrees.
+		// The feature is opt-in: a layout exists only if you put a file in
+		// worktrees/, so a quiet no-op here is the common, correct path.
 		fmt.Printf("herdr-plus: no worktree layout matches repo %q (branch %q); nothing to do.\n", ev.RepoName, ev.Branch)
 		return
 	}
