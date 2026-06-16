@@ -58,25 +58,26 @@ There are two layers of "on":
    empty one — herdr-plus does nothing. The event still fires for every worktree;
    herdr-plus just has no layout to apply, so worktree creation is unchanged.
 
-2. **Each layout has its own switch.** A layout deploys when `enabled` is omitted
-   or set to `true`. Set **`enabled = false`** to keep the file on disk but stop it
-   firing — creating a worktree of that repo then just makes a plain workspace,
-   exactly as if the layout weren't there. It's the clean way to pause a layout
-   without deleting your tab list.
+2. **Each layout has its own switch,** named after the event it gates. A layout
+   opens when `on_worktree_created` is omitted or set to `true`. Set
+   **`on_worktree_created = false`** to keep the file on disk but stop it firing —
+   creating a worktree of that repo then just makes a plain workspace, exactly as
+   if the layout weren't there. It's the clean way to pause a layout without
+   deleting your tab list.
 
 ```toml
 repo = "options-cafe"
-enabled = false                # keep the layout, but don't deploy it
+on_worktree_created = false     # keep the layout, but don't open it
 
 [[tabs]]
 name = "claude"
 command = "claude"
 ```
 
-A disabled layout is still validated on load (so a typo can't hide behind
-`enabled = false`), and it never suppresses another matching layout — if you have
-an enabled repo-only layout and a disabled branch-specific one, the enabled one
-still wins.
+A switched-off layout is still validated on load (so a typo can't hide behind
+`on_worktree_created = false`), and it never suppresses another matching layout —
+if you have an active repo-only layout and a switched-off branch-specific one, the
+active one still wins.
 
 ## Matching rules
 
@@ -86,7 +87,7 @@ still wins.
   created.
 - **`branch`** (optional) narrows a layout to worktrees created on exactly that
   branch (case-insensitive). Leave it off to apply to every branch of the repo.
-- When **more than one enabled layout matches** the same worktree, a
+- When **more than one active layout matches** the same worktree, a
   branch-specific layout wins over a repo-only one; otherwise the first by file
   name is used.
 
@@ -109,7 +110,7 @@ for the full vocabulary.
 
 ## When nothing matches
 
-Every worktree creation fires the event, but if no enabled layout matches the
+Every worktree creation fires the event, but if no active layout matches the
 repo, herdr-plus does nothing — the feature is opt-in and silent. With no
 `worktrees/` directory at all, it's simply inert.
 
@@ -125,8 +126,8 @@ herdr plugin log list --plugin cloudmanic.herdr-plus
 
 A line like `applied worktree layout "options-cafe.toml" to repo "options-cafe"`
 confirms a layout fired. `no worktree layout matches repo …` means nothing did,
-and `worktree layout "options-cafe.toml" matches repo "options-cafe" but is
-disabled` means a layout matched but you switched it off.
+and `worktree layout "options-cafe.toml" matches repo "options-cafe" but
+on_worktree_created = false` means a layout matched but you switched it off.
 
 ## See also
 
