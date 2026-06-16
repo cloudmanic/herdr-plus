@@ -18,11 +18,12 @@ import (
 )
 
 // WorktreeLayout is a declarative tab layout applied automatically when a herdr
-// git worktree is created. Where a Project is opened on demand and creates its
-// own workspace, a worktree layout reacts to herdr's `worktree.created` event:
-// herdr has already made the worktree's workspace, so the layout just fills it
-// with tabs. It reuses the same ProjectTab model, so worktree layouts get the
-// full single-command / split-pane vocabulary that projects have.
+// git worktree is created or opened. Where a Project is opened on demand and
+// creates its own workspace, a worktree layout reacts to herdr's worktree.created
+// and worktree.opened events: herdr has already made the worktree's workspace, so
+// the layout just fills it with tabs. It reuses the same ProjectTab model, so
+// worktree layouts get the full single-command / split-pane vocabulary that
+// projects have.
 //
 // Layouts live in ~/.config/herdr-plus/worktrees/, one TOML file per layout (the
 // file name does not matter). With no files there, the feature is simply inert.
@@ -172,7 +173,8 @@ type worktreeEvent struct {
 }
 
 // worktreeCreatedPayload mirrors the JSON herdr puts in HERDR_PLUGIN_EVENT_JSON
-// for a `worktree.created` event. Only the fields we use are declared.
+// for a worktree.created or worktree.opened event (the two share this shape).
+// Only the fields we use are declared.
 type worktreeCreatedPayload struct {
 	Data struct {
 		Workspace struct {
@@ -214,14 +216,16 @@ func parseWorktreeEvent(eventJSON string, getenv func(string) string) (worktreeE
 	}, nil
 }
 
-// runOnWorktreeCreated is the `worktree.created` event handler herdr invokes (via
-// the [[events]] entry in herdr-plugin.toml). It finds the enabled layout that
-// matches the new worktree and lays its tabs into the workspace herdr already
-// created. With no matching layout it does nothing — every worktree fires this, so
-// a quiet no-op is the common, correct case. Output goes to stdout/stderr, which
-// herdr captures in the plugin log (`herdr plugin log list --plugin
-// cloudmanic.herdr-plus`).
-func runOnWorktreeCreated(_ []string) {
+// runOnWorktreeEvent is the worktree event handler herdr invokes (via the
+// [[events]] entries in herdr-plugin.toml). herdr runs it for both
+// worktree.created (a new worktree) and worktree.opened (an existing worktree
+// reopened into a workspace); both hand us a fresh workspace that wants tabs, so
+// they share one handler. It finds the layout matching the worktree and lays its
+// tabs into the workspace herdr already created. With no matching layout it does
+// nothing — every worktree fires this, so a quiet no-op is the common, correct
+// case. Output goes to stdout/stderr, which herdr captures in the plugin log
+// (`herdr plugin log list --plugin cloudmanic.herdr-plus`).
+func runOnWorktreeEvent(_ []string) {
 	ev, err := parseWorktreeEvent(os.Getenv("HERDR_PLUGIN_EVENT_JSON"), os.Getenv)
 	if err != nil {
 		errExit("worktree event:", err)
@@ -242,8 +246,8 @@ func runOnWorktreeCreated(_ []string) {
 	}
 
 	// We need the workspace herdr made for the worktree and its root tab/pane to
-	// build on. They should always be present for a worktree.created event; bail
-	// loudly if not so the failure is visible in the plugin log.
+	// build on. They should always be present for a worktree event; bail loudly if
+	// not so the failure is visible in the plugin log.
 	if ev.WorkspaceID == "" || ev.RootTabID == "" || ev.RootPaneID == "" {
 		errExit(fmt.Sprintf("worktree event missing ids (workspace=%q tab=%q pane=%q)", ev.WorkspaceID, ev.RootTabID, ev.RootPaneID))
 	}
@@ -251,6 +255,18 @@ func runOnWorktreeCreated(_ []string) {
 	client, err := newHerdrClient()
 	if err != nil {
 		errExit(err)
+	}
+
+	// Idempotency guard. We subscribe to both worktree.created and worktree.opened,
+	// and herdr may also reopen a worktree workspace across sessions — so the
+	// handler can fire for a workspace we already laid out. A freshly created or
+	// opened worktree workspace has exactly one (root) pane, so more than one pane
+	// means the layout is already in place and we skip rather than stack a second
+	// copy of the tabs on top. A pane.list error returns 0, which fails open
+	// (proceeds) rather than wrongly skipping.
+	if n, err := client.workspacePaneCount(ev.WorkspaceID); err == nil && n > 1 {
+		fmt.Printf("herdr-plus: worktree workspace %q already has %d panes; skipping layout %q (already applied).\n", ev.WorkspaceID, n, layout.source)
+		return
 	}
 
 	if err := layoutTabs(client, ev.WorkspaceID, ev.RootTabID, ev.RootPaneID, layout.Tabs); err != nil {

@@ -172,12 +172,13 @@ as `HERDR_PLUS_*` environment variables. If a command doesn't reference
 ## Worktree auto-layout
 
 herdr-plus can lay a project-style tab layout into a git **worktree** the moment
-herdr creates it. When you run `herdr worktree create` (or open one), herdr makes a
-fresh workspace for the worktree and fires a `worktree.created` event; herdr-plus
-catches it, finds a layout matching the worktree's repo, and opens that layout's
-tabs and panes in the new workspace — every command running — with no keypress.
-This is the plugin system's `[[events]]` hook (declared in
-[`herdr-plugin.toml`](herdr-plugin.toml)) put to work.
+herdr creates *or opens* it. When you run `herdr worktree create`/`open` (or use
+herdr's right-click worktree dialog), herdr makes a fresh workspace for the
+worktree and fires a `worktree.created` event (new worktree) or `worktree.opened`
+event (existing one); herdr-plus catches either, finds a layout matching the
+worktree's repo, and opens that layout's tabs and panes in the new workspace —
+every command running — with no keypress. This is the plugin system's `[[events]]`
+hook (declared in [`herdr-plugin.toml`](herdr-plugin.toml)) put to work.
 
 Layouts live in `~/.config/herdr-plus/worktrees/`, one TOML file per layout (the
 file name doesn't matter). A layout is a `repo` matcher plus the same `[[tabs]]`
