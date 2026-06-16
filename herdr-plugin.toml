@@ -14,7 +14,7 @@
 id = "cloudmanic.herdr-plus"
 name = "Herdr Plus"
 # Kept in sync with internal/version/version.go by .github/workflows/release.yml.
-version = "0.1.3"
+version = "0.1.4"
 min_herdr_version = "0.7.0"
 description = "An add-on platform for herdr. Projects: declarative workspace templates you fuzzy-pick to spin up a whole herdr workspace."
 platforms = ["linux", "macos", "windows"]
