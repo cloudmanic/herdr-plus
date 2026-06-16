@@ -17,10 +17,10 @@ import (
 // registers it from herdr-plugin.toml and runs this binary with a subcommand per
 // manifest entry point.
 //
-//   - "projects" is the Projects action herdr runs from a keybinding: it opens a
-//     full-screen browser to fuzzy-pick a project and spin up its workspace.
-//   - "projects-ui" is the internal browser the launcher starts inside the host
-//     workspace's pane (the half with a terminal); end users never run it.
+//   - "projects" is the Projects action herdr runs from a keybinding: it asks
+//     herdr to open the browser as a zoomed plugin pane.
+//   - "projects-ui" is the browser itself; herdr runs it inside that zoomed pane
+//     (the `picker` entrypoint), so end users never run it directly.
 //   - "ping" is a smoke test that proves the plugin loop end to end.
 //
 // The bare binary has no launcher of its own, so it just prints usage.
@@ -31,7 +31,7 @@ func main() {
 			launchProjects()
 			return
 		case "projects-ui":
-			runProjectsUICmd(os.Args[2:])
+			runProjectsUI()
 			return
 		case "ping":
 			runPing()

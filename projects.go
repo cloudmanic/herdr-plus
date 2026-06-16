@@ -7,84 +7,44 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// pickerWorkspaceLabel is the title herdr-plus gives the ephemeral workspace it
-// opens to host the projects browser.
-const pickerWorkspaceLabel = "Herdr Plus"
-
-// pickerTabLabel is the name of the tab inside that workspace where the browser
-// runs.
-const pickerTabLabel = "projects"
-
 // launchProjects is the Projects action's entry point. herdr runs it server-side
-// (from the plugin action / keybinding), so it has no terminal of its own; it
-// opens a brand-new full-screen workspace to host the browser, renames its root
-// tab to "projects", and starts the browser UI in that pane. It returns
-// immediately so the pane the user triggered it from keeps its prompt.
+// (from the plugin action / keybinding), so it has no terminal of its own. It
+// asks herdr to open the projects browser as a zoomed plugin pane (the `picker`
+// entrypoint in herdr-plugin.toml). herdr creates and tears down that pane for
+// us, so — unlike the old design — there is no throwaway workspace to manage.
 func launchProjects() {
-	client, err := newHerdrClient()
-	if err != nil {
-		errExit(err)
+	// HERDR_BIN_PATH points at the running herdr binary; it is the portable way to
+	// call back into the CLI from a plugin command.
+	herdr := os.Getenv("HERDR_BIN_PATH")
+	if herdr == "" {
+		herdr = "herdr"
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		errExit(err)
-	}
-
-	// Resolve our own absolute path so the new pane's shell can launch the browser
-	// even when the binary is not on PATH.
-	exe, err := os.Executable()
-	if err != nil {
-		errExit(err)
-	}
-
-	// Open the focused host workspace rooted at the home directory.
-	ws, tab, pane, err := client.workspaceCreate(home, pickerWorkspaceLabel, true)
-	if err != nil {
-		errExit("could not create projects workspace:", err)
-	}
-
-	// Rename the root tab to "projects". Best effort: if it fails the tab simply
-	// keeps its default numbered name.
-	_ = client.tabRename(tab, pickerTabLabel)
-
-	// Start the browser in the new pane, handing it the host workspace id so it
-	// can tear the whole workspace down when the user picks a project or quits.
-	// runCommand waits for the new shell's prompt and submits with a real Enter
-	// key (not a trailing newline — see sendInput), so the UI starts reliably.
-	launch := fmt.Sprintf("%s projects-ui %s", shellQuote(exe), ws)
-	if err := client.runCommand(pane, launch); err != nil {
-		errExit("failed to start the projects browser:", err)
+	cmd := exec.Command(herdr, "plugin", "pane", "open",
+		"--plugin", "cloudmanic.herdr-plus",
+		"--entrypoint", "picker",
+		"--placement", "zoomed",
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		errExit("could not open the projects browser:", err)
 	}
 }
 
-// runProjectsUICmd parses the internal `projects-ui` invocation. Its single
-// positional argument is the id of the ephemeral host workspace to close on exit.
-func runProjectsUICmd(args []string) {
-	fs := flag.NewFlagSet("projects-ui", flag.ExitOnError)
-	_ = fs.Parse(args)
-
-	pickerWS := ""
-	if rest := fs.Args(); len(rest) > 0 {
-		pickerWS = rest[0]
-	}
-
-	runProjectsUI(pickerWS)
-}
-
-// runProjectsUI loads the projects, renders the full-screen browser, and acts on
-// the result: opening the chosen project's workspace, or — on cancel — tearing
-// down the ephemeral host workspace. pickerWS is the workspace this UI runs in,
-// which is closed once we are done with it.
-func runProjectsUI(pickerWS string) {
+// runProjectsUI renders the full-screen projects browser. It runs inside the
+// zoomed pane herdr opens for the `picker` entrypoint (which has a real
+// terminal), loads the projects, and — when one is chosen — spins up its
+// workspace. On cancel it simply exits and herdr tears the pane down.
+func runProjectsUI() {
 	projects, err := loadProjects()
 	if err != nil {
 		// Leave the pane open so the user can read the config error.
@@ -104,9 +64,8 @@ func runProjectsUI(pickerWS string) {
 
 	m, ok := result.(projectsModel)
 	if !ok || m.chosen == nil {
-		// Cancelled (or the program never produced a model) — remove the ephemeral
-		// host workspace and return focus to where the user was.
-		closeWorkspace(pickerWS)
+		// Cancelled (or the program never produced a model) — nothing to do; herdr
+		// closes the pane when this process exits.
 		return
 	}
 
@@ -114,17 +73,17 @@ func runProjectsUI(pickerWS string) {
 	if err != nil {
 		errExit(err)
 	}
-	if err := openProject(client, *m.chosen, pickerWS); err != nil {
-		// Leave the host workspace open so the error stays on screen.
+	if err := openProject(client, *m.chosen); err != nil {
 		errExit("could not open project:", err)
 	}
 }
 
 // openProject turns a project into a live herdr workspace: it creates a focused
-// workspace rooted at the project's working directory, lays out its tabs and
-// panes, runs each startup command, and finally closes the ephemeral host
-// workspace the browser ran in.
-func openProject(client *herdrClient, p Project, pickerWS string) error {
+// workspace rooted at the project's working directory and lays out its tabs and
+// panes, running each startup command. Creating the focused workspace switches
+// the user to it; the picker pane this was launched from is then torn down by
+// herdr when runProjectsUI exits.
+func openProject(client *herdrClient, p Project) error {
 	dir := p.expandedWorkingDir()
 	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 		return fmt.Errorf("working directory does not exist: %s", dir)
@@ -136,17 +95,7 @@ func openProject(client *herdrClient, p Project, pickerWS string) error {
 	}
 
 	// Lay the project's tabs into the new workspace.
-	if err := layoutTabs(client, ws, rootTab, rootPane, p.Tabs); err != nil {
-		return err
-	}
-
-	// Tear down the ephemeral host workspace. Focus is already on the new project
-	// workspace, so this only removes the browser. This also closes the pane this
-	// process is running in, so it is the last thing we do.
-	if pickerWS != "" {
-		_ = client.workspaceClose(pickerWS)
-	}
-	return nil
+	return layoutTabs(client, ws, rootTab, rootPane, p.Tabs)
 }
 
 // layoutTabs lays an ordered list of tabs — each with its panes and optional
@@ -204,18 +153,4 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane string, tabs []Projec
 		}
 	}
 	return nil
-}
-
-// closeWorkspace asks herdr to close a workspace. Failures are ignored: from a
-// pane that is about to go away, there is nothing useful to do if the socket is
-// unreachable.
-func closeWorkspace(workspaceID string) {
-	if workspaceID == "" {
-		return
-	}
-	client, err := newHerdrClient()
-	if err != nil {
-		return
-	}
-	_ = client.workspaceClose(workspaceID)
 }

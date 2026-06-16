@@ -33,6 +33,15 @@ id = "projects"
 title = "Herdr Plus: Projects"
 command = ["./bin/herdr-plus", "projects"]
 
+# picker — the projects browser as a herdr-managed pane (no throwaway workspace).
+# Opened by the projects action via `herdr plugin pane open`; herdr gives it a
+# zoomed pane, runs the browser, and tears the pane down when it exits.
+[[panes]]
+id = "picker"
+title = "Herdr Plus: Projects"
+placement = "zoomed"
+command = ["./bin/herdr-plus", "projects-ui"]
+
 # ping — a smoke-test action that proves the plugin loop end to end: it talks to
 # herdr over the socket and prints the focused pane/workspace. Its output is
 # captured in `herdr plugin log list --plugin cloudmanic.herdr-plus`.
