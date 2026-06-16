@@ -5,21 +5,21 @@
 class HerdrPlus < Formula
   desc "herdr-plus — an extension for the herdr terminal multiplexer."
   homepage "https://github.com/cloudmanic/herdr-plus"
-  version "0.1.8"
+  version "0.1.9"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/cloudmanic/herdr-plus/releases/download/v0.1.8/herdr-plus_0.1.8_darwin_amd64.tar.gz"
-      sha256 "9aec58246222c484a0e8b4e5aab52ad15b6cd65ac89c80e1fc3ffc7894deb653"
+      url "https://github.com/cloudmanic/herdr-plus/releases/download/v0.1.9/herdr-plus_0.1.9_darwin_amd64.tar.gz"
+      sha256 "eec3c1faa572f6b30715f2776b24a078d0c25a2aa866bd854a4c4e16d1a12b59"
 
       define_method(:install) do
         bin.install "herdr-plus"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/cloudmanic/herdr-plus/releases/download/v0.1.8/herdr-plus_0.1.8_darwin_arm64.tar.gz"
-      sha256 "4d5e165b4dbdde9dd14212ff526709060d0ef8b816794c43edea5463bc390686"
+      url "https://github.com/cloudmanic/herdr-plus/releases/download/v0.1.9/herdr-plus_0.1.9_darwin_arm64.tar.gz"
+      sha256 "b1c3f50dc3d0006991904e16e1193986000991f0afacb192b2697fe987a4cca0"
 
       define_method(:install) do
         bin.install "herdr-plus"
@@ -29,15 +29,15 @@ class HerdrPlus < Formula
 
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
-      url "https://github.com/cloudmanic/herdr-plus/releases/download/v0.1.8/herdr-plus_0.1.8_linux_amd64.tar.gz"
-      sha256 "b2802b1220ed91d925b9e340f2a466205094be9f5cef54c53d5252519c089dcc"
+      url "https://github.com/cloudmanic/herdr-plus/releases/download/v0.1.9/herdr-plus_0.1.9_linux_amd64.tar.gz"
+      sha256 "565e03c06e89e08b9bc19784f5f2ab2d3458ff8f9e7a63c9fb8af8e3b8008ac4"
       define_method(:install) do
         bin.install "herdr-plus"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/cloudmanic/herdr-plus/releases/download/v0.1.8/herdr-plus_0.1.8_linux_arm64.tar.gz"
-      sha256 "e9f0d0f878f50e86e1187f279fdf4d4064fd75c1bbb37e729100a6dcf02165c2"
+      url "https://github.com/cloudmanic/herdr-plus/releases/download/v0.1.9/herdr-plus_0.1.9_linux_arm64.tar.gz"
+      sha256 "f5b83a2f8fa7be005feb0dccd9f0867379719492d3f296c0486001ccc05c0986"
       define_method(:install) do
         bin.install "herdr-plus"
       end
