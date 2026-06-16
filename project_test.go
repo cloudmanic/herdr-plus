@@ -16,6 +16,9 @@ import (
 // makes sure it exists, mirroring how the real config layout is rooted.
 func projectsDirIn(t *testing.T, tmp string) string {
 	t.Helper()
+	// Pin config to the temp XDG dir even if these tests run inside a herdr
+	// plugin context (where HERDR_PLUGIN_CONFIG_DIR would otherwise win).
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", "")
 	dir := filepath.Join(tmp, "herdr-plus", "projects")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir projects dir: %v", err)
