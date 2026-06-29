@@ -200,7 +200,8 @@ name = "terminal"              # no command — just an empty shell
 ```
 
 - **`repo`** (required) matches the new worktree's repository name — the repo's
-  basename, e.g. `options-cafe` — case-insensitively.
+  basename, e.g. `options-cafe` — case-insensitively. Set `repo = "*"` to create a
+  **wildcard layout** that matches any repo (see below).
 - **`branch`** (optional) narrows a layout to worktrees created on exactly that
   branch. When more than one layout matches, a branch-specific one wins over a
   repo-only one.
@@ -216,6 +217,39 @@ herdr-plus does nothing when nothing matches.
 
 The handler's output shows up in `herdr plugin log list --plugin
 cloudmanic.herdr-plus`, so you can confirm whether a layout fired.
+
+### Wildcard (generic) layouts
+
+Set `repo = "*"` to define a layout that applies to **every** repo that doesn't
+have its own specific layout — a generic project template:
+
+```toml
+repo = "*"
+
+[[tabs]]
+name = "claude"
+command = "claude --dangerously-skip-permissions --chrome"
+
+[[tabs]]
+name = "code-review"
+command = "lazygit"
+
+[[tabs]]
+name = "terminal"
+```
+
+This is useful when you have many repos that all want the same workspace shape.
+Instead of one file per repo, write one wildcard layout and you're done.
+
+**Specificity:** when multiple layouts match a worktree, the most specific wins:
+
+1. Repo + branch (e.g. `repo = "my-app"`, `branch = "main"`)
+2. Repo only (e.g. `repo = "my-app"`)
+3. Wildcard + branch (e.g. `repo = "*"`, `branch = "main"`)
+4. Wildcard only (e.g. `repo = "*"`)
+
+A repo-specific layout always beats a wildcard, so you can set a generic default
+and still override individual repos when needed.
 
 ## Binding a key
 
