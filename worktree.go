@@ -30,12 +30,14 @@ import (
 type WorktreeLayout struct {
 	// Repo selects which worktrees this layout applies to, matched
 	// case-insensitively against the new worktree's repo name (the repository's
-	// basename, e.g. "options-cafe"). Required.
+	// basename, e.g. "options-cafe"). Set to "*" to match any repo as a universal
+	// fallback (a wildcard layout). Required.
 	Repo string `toml:"repo"`
 
 	// Branch, when set, narrows the layout to worktrees created on exactly this
-	// branch (case-insensitive). Empty applies to every branch of the repo, and a
-	// branch-specific layout is preferred over a repo-only one when both match.
+	// branch (case-insensitive). Empty applies to every branch of the repo. When
+	// multiple layouts match, specificity determines the winner: repo+branch >
+	// repo-only > wildcard+branch > wildcard-only.
 	Branch string `toml:"branch"`
 
 	// Tabs is the ordered list of tabs to open in the worktree's workspace,
