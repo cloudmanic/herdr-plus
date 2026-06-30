@@ -214,6 +214,22 @@ func TestEffectivePanes(t *testing.T) {
 	if multi[2].Split != SplitRight {
 		t.Fatalf("pane 3 split = %q, want right", multi[2].Split)
 	}
+
+	// Labels pass through effectivePanes unchanged.
+	labeled := ProjectTab{Name: "services", Panes: []ProjectPane{
+		{Command: "make run", Label: "Server"},
+		{Command: "make minio", Split: "right", Label: "Minio"},
+		{Command: "", Label: "Empty"},
+	}}.effectivePanes()
+	if labeled[0].Label != "Server" {
+		t.Fatalf("pane 0 label = %q, want Server", labeled[0].Label)
+	}
+	if labeled[1].Label != "Minio" {
+		t.Fatalf("pane 1 label = %q, want Minio", labeled[1].Label)
+	}
+	if labeled[2].Label != "Empty" {
+		t.Fatalf("pane 2 label = %q, want Empty", labeled[2].Label)
+	}
 }
 
 // TestTabLabels confirms split tabs are annotated with a "×N" pane count while
