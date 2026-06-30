@@ -109,15 +109,20 @@ A tab can hold up to **4 panes**. Instead of a single `command`, give it
 `[[tabs.panes]]` entries. Each pane after the first sets `split` to `"down"`
 (stacked) or `"right"` (side by side) — how it splits off the previous pane. An
 omitted `split` defaults to `"down"`.
+Each pane may also set an optional `label` — the name herdr shows on the pane
+border (when `show_agent_labels_on_pane_borders` is on). A blank or omitted
+`label` leaves the pane's default name untouched.
 
 ```toml
 [[tabs]]
 name = "server"
 
 [[tabs.panes]]
+label = "Server"
 command = "php artisan serve"
 
 [[tabs.panes]]
+label = "Assets"
 command = "npm run dev"
 split = "down"
 ```
