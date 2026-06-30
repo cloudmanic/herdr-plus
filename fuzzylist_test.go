@@ -159,3 +159,49 @@ func TestFuzzyListClickRow(t *testing.T) {
 		t.Fatalf("a missed click moved the cursor: ref = %d, want 1", got)
 	}
 }
+
+// TestFuzzyListQueryChangeResetsCursor verifies that when the query changes,
+// the cursor resets to 0 (the top matched item), preventing the issue where
+// starting with a separator (which defaults the initial cursor to index 1)
+// causes the second matching item (index 1 of filtered) to be highlighted
+// instead of the first matched item (index 0 of filtered).
+func TestFuzzyListQueryChangeResetsCursor(t *testing.T) {
+	items := []listItem{
+		{name: "Group Heading", selectable: false},
+		{name: "alpha", selectable: true, ref: 1},
+		{name: "bravo", selectable: true, ref: 2},
+	}
+	l := newFuzzyList("", items)
+
+	// Since index 0 is a heading, the initial cursor must skip it and land on index 1 ("alpha").
+	if got := l.cursor; got != 1 {
+		t.Fatalf("initial cursor = %d, want 1", got)
+	}
+	if got := l.selectedIndex(); got != 1 {
+		t.Fatalf("initial selectedIndex = %d, want 1 (alpha)", got)
+	}
+
+	// Change query to "a" so "alpha" and "bravo" both match.
+	l.input.SetValue("a")
+	l.filter()
+
+	// Since the query changed, the cursor should have been reset to 0, which points to "alpha".
+	if got := l.cursor; got != 0 {
+		t.Fatalf("cursor after typing 'a' = %d, want 0", got)
+	}
+	if got := l.selectedIndex(); got != 1 {
+		t.Fatalf("selectedIndex after typing 'a' = %d, want 1 (alpha)", got)
+	}
+
+	// Clear query back to ""
+	l.input.SetValue("")
+	l.filter()
+
+	// Cursor should go back to 1 (skipping heading).
+	if got := l.cursor; got != 1 {
+		t.Fatalf("cursor after clearing query = %d, want 1", got)
+	}
+	if got := l.selectedIndex(); got != 1 {
+		t.Fatalf("selectedIndex after clearing query = %d, want 1 (alpha)", got)
+	}
+}
