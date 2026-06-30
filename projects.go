@@ -8,6 +8,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -134,6 +135,11 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane string, tabs []Projec
 				paneID, err = client.paneSplit(prev, pane.Split, false)
 				if err != nil {
 					return fmt.Errorf("split pane %d in tab %q: %w", j+1, t.Name, err)
+				}
+			}
+			if lbl := strings.TrimSpace(pane.Label); lbl != "" {
+				if err := client.paneRename(paneID, lbl); err != nil {
+					log.Printf("warning: failed to label pane %d in tab %q: %v", j+1, t.Name, err)
 				}
 			}
 			if strings.TrimSpace(pane.Command) != "" {
