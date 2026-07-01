@@ -28,6 +28,13 @@ const docsURL = "https://github.com/cloudmanic/herdr-plus"
 // mouse click's screen row minus this offset is the list-local line for clickRow.
 const projectsHeaderLines = 2
 
+type projectsMode int
+
+const (
+	modeList projectsMode = iota
+	modeBranch
+)
+
 // Projects-browser styles. These build on the shared palette in styles.go
 // (titleStyle, nameStyle, descStyle, footerStyle, …); here we add the few extra
 // pieces the full-screen browser needs.
@@ -73,8 +80,14 @@ type projectsModel struct {
 
 	// chosen is the project to open, read back after the program exits; nil when
 	// the user cancelled.
-	chosen   *Project
-	quitting bool
+	chosen *Project
+
+	mode         projectsMode
+	branchInput  textinput.Model
+	branchPrefix string
+	worktree     bool
+	branch       string
+	quitting     bool
 }
 
 // ungroupedHeading labels the catch-all bucket for projects that declare no
@@ -87,12 +100,17 @@ const ungroupedHeading = "Ungrouped"
 // Projects are arranged into group headings (see orderProjectsByGroup) and the
 // resulting display order is stored on the model so each list row's ref indexes
 // straight back into it.
-func newProjectsModel(projects []Project, projectsDir string) projectsModel {
+func newProjectsModel(projects []Project, projectsDir, branchPrefix string) projectsModel {
 	ordered, items := orderProjectsByGroup(projects)
+	branchInput := textinput.New()
+	branchInput.Prompt = ""
+	branchInput.Placeholder = "empty → generated name"
 	return projectsModel{
-		projects:    ordered,
-		list:        newFuzzyList("Type to filter projects…", items),
-		projectsDir: projectsDir,
+		projects:     ordered,
+		list:         newFuzzyList("Type to filter projects…", items),
+		projectsDir:  projectsDir,
+		branchInput:  branchInput,
+		branchPrefix: branchPrefix,
 	}
 }
 
@@ -186,6 +204,10 @@ func (m projectsModel) Init() tea.Cmd {
 // Update routes key presses; everything else (window sizes, the blink tick) is
 // forwarded to the query box so the cursor keeps blinking and text keeps flowing.
 func (m projectsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.mode == modeBranch {
+		return m.updateBranch(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -216,6 +238,8 @@ func (m projectsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "enter":
 			return m.activateProject()
+		case "ctrl+g":
+			return m.promptWorktreeBranch()
 		}
 
 		cmd := m.list.editQuery(msg)
@@ -246,6 +270,44 @@ func (m projectsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m projectsModel) updateBranch(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			if m.chosen == nil {
+				m.mode = modeList
+				return m, nil
+			}
+			m.worktree = true
+			m.branch = resolveWorktreeBranch(m.branchInput.Value(), m.branchPrefix)
+			return m, tea.Quit
+		case "esc":
+			m.mode = modeList
+			m.chosen = nil
+			m.worktree = false
+			m.branch = ""
+			return m, nil
+		}
+
+		var cmd tea.Cmd
+		m.branchInput, cmd = m.branchInput.Update(msg)
+		return m, cmd
+
+	case tea.MouseMsg:
+		return m, nil
+	}
+
+	var cmd tea.Cmd
+	m.branchInput, cmd = m.branchInput.Update(msg)
+	return m, cmd
+}
+
 // activateProject records the highlighted project as the chosen one and signals
 // a quit so its workspace gets built. Shared by the enter key and a left-click;
 // activating with nothing selectable is a no-op.
@@ -257,6 +319,23 @@ func (m projectsModel) activateProject() (tea.Model, tea.Cmd) {
 	p := m.projects[idx]
 	m.chosen = &p
 	return m, tea.Quit
+}
+
+func (m projectsModel) promptWorktreeBranch() (tea.Model, tea.Cmd) {
+	idx := m.list.selectedIndex()
+	if idx < 0 {
+		return m, nil
+	}
+	p := m.projects[idx]
+	m.chosen = &p
+	m.worktree = false
+	m.branch = ""
+	m.branchInput.SetValue("")
+	m.branchInput.Prompt = ""
+	m.branchInput.Placeholder = "empty → generated name"
+	cmd := m.branchInput.Focus()
+	m.mode = modeBranch
+	return m, cmd
 }
 
 // View renders the screen for the current state: the onboarding card when there
@@ -278,6 +357,9 @@ func (m projectsModel) View() string {
 	if len(m.projects) == 0 {
 		return m.emptyView(w, h)
 	}
+	if m.mode == modeBranch {
+		return m.branchView(w, h)
+	}
 	return m.browserView(w, h)
 }
 
@@ -290,7 +372,7 @@ func (m projectsModel) browserView(w, h int) string {
 	body := m.list.view("no matching projects")
 
 	detail := m.detailBar(w)
-	footer := footerStyle.Render("  ↑/↓ move · type to filter · click/enter open · esc quit")
+	footer := footerStyle.Render("  ↑/↓ move · type to filter · click/enter open · ctrl+g worktree · esc quit")
 
 	top := header + "\n\n" + body
 	bottom := detail + "\n" + footer
@@ -301,6 +383,28 @@ func (m projectsModel) browserView(w, h int) string {
 		gap = 1
 	}
 	return top + strings.Repeat("\n", gap) + bottom
+}
+
+func (m projectsModel) branchView(w, h int) string {
+	header := headerBarStyle.Width(w).Render(projectsTitle)
+
+	name, dir := "", ""
+	if m.chosen != nil {
+		name = m.chosen.Name
+		dir = m.chosen.expandedWorkingDir()
+	}
+
+	body := nameStyle.Render(name) + "\n" +
+		dirIconStyle.Render("📁 ") + pathStyle.Render(truncate(dir, w-6)) + "\n\n" +
+		promptStyle.Render("❯ ") + m.branchInput.View()
+	footer := footerStyle.Render("  enter create · esc back")
+
+	top := header + "\n\n" + body
+	gap := h - lipgloss.Height(top) - lipgloss.Height(footer)
+	if gap < 1 {
+		gap = 1
+	}
+	return top + strings.Repeat("\n", gap) + footer
 }
 
 // detailBar renders the bordered preview of the currently highlighted project:

@@ -7,6 +7,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -42,5 +43,54 @@ func TestConfigBaseDirFallsBackToLegacy(t *testing.T) {
 	}
 	if want := filepath.Join(xdg, "herdr-plus"); got != want {
 		t.Fatalf("configBaseDir = %q, want %q", got, want)
+	}
+}
+
+// TestLoadPluginConfigMissingFile confirms the optional global config is truly
+// optional: no config.toml means zero values and no error.
+func TestLoadPluginConfigMissingFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", dir)
+
+	cfg, err := loadPluginConfig()
+	if err != nil {
+		t.Fatalf("loadPluginConfig missing file: %v", err)
+	}
+	if cfg.Worktree.BranchPrefix != "" {
+		t.Fatalf("BranchPrefix = %q, want empty", cfg.Worktree.BranchPrefix)
+	}
+}
+
+// TestLoadPluginConfigParsesBranchPrefix confirms config.toml can set the
+// optional worktree branch prefix.
+func TestLoadPluginConfigParsesBranchPrefix(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", dir)
+
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("[worktree]\nbranch_prefix = \"dvic/\"\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := loadPluginConfig()
+	if err != nil {
+		t.Fatalf("loadPluginConfig: %v", err)
+	}
+	if cfg.Worktree.BranchPrefix != "dvic/" {
+		t.Fatalf("BranchPrefix = %q, want dvic/", cfg.Worktree.BranchPrefix)
+	}
+}
+
+// TestLoadPluginConfigRejectsMalformedFile confirms parse errors surface instead
+// of being treated as a missing optional config.
+func TestLoadPluginConfigRejectsMalformedFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", dir)
+
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("[worktree\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if _, err := loadPluginConfig(); err == nil {
+		t.Fatal("expected malformed config.toml to error")
 	}
 }

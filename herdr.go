@@ -87,6 +87,23 @@ func (c *herdrClient) call(method string, params map[string]any, out any) error 
 	return nil
 }
 
+// worktreeCreateParams builds the worktree.create payload. A blank branch is
+// omitted so herdr can generate its native worktree/<name> branch.
+func worktreeCreateParams(cwd, branch string, focus bool) map[string]any {
+	params := map[string]any{
+		"cwd":   cwd,
+		"focus": focus,
+	}
+	if b := strings.TrimSpace(branch); b != "" {
+		params["branch"] = b
+	}
+	return params
+}
+
+func (c *herdrClient) worktreeCreate(cwd, branch string, focus bool) error {
+	return c.call("worktree.create", worktreeCreateParams(cwd, branch, focus), nil)
+}
+
 // paneSplit splits the target pane in the given direction ("down" for a new pane
 // beneath it, "right" for one beside it), creating a new pane, and returns the
 // new pane's id. When focus is true the new pane becomes the focused pane (the
