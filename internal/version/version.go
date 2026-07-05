@@ -12,4 +12,4 @@ package version
 // Version is the herdr-plus release version, printed by `herdr-plus version`.
 // This is the fresh plugin-first rebuild, starting at 0.1.0. Edit the major or
 // minor by hand to cut a larger release.
-const Version = "0.1.13"
+const Version = "0.1.14"
