@@ -30,12 +30,14 @@ import (
 type WorktreeLayout struct {
 	// Repo selects which worktrees this layout applies to, matched
 	// case-insensitively against the new worktree's repo name (the repository's
-	// basename, e.g. "options-cafe"). Required.
+	// basename, e.g. "options-cafe"). Set to "*" to match any repo as a universal
+	// fallback (a wildcard layout). Required.
 	Repo string `toml:"repo"`
 
 	// Branch, when set, narrows the layout to worktrees created on exactly this
-	// branch (case-insensitive). Empty applies to every branch of the repo, and a
-	// branch-specific layout is preferred over a repo-only one when both match.
+	// branch (case-insensitive). Empty applies to every branch of the repo. When
+	// multiple layouts match, specificity determines the winner: repo+branch >
+	// repo-only > wildcard+branch > wildcard-only.
 	Branch string `toml:"branch"`
 
 	// Tabs is the ordered list of tabs to open in the worktree's workspace,
@@ -60,14 +62,17 @@ func (l WorktreeLayout) validate() error {
 	return validateTabs(l.Repo, l.source, l.Tabs)
 }
 
-// matches reports whether this layout applies to the given worktree event. The
-// repo must match (against either the repo name or the basename of the repo
-// root, case-insensitively); a layout with a Branch additionally requires the
+// matches reports whether this layout applies to the given worktree event. A
+// repo value of "*" is a wildcard that matches any repo; otherwise the repo must
+// match (against either the repo name or the basename of the repo root,
+// case-insensitively). A layout with a Branch additionally requires the
 // worktree's branch to match.
 func (l WorktreeLayout) matches(ev worktreeEvent) bool {
 	repo := strings.TrimSpace(l.Repo)
-	if !strings.EqualFold(repo, ev.RepoName) && !strings.EqualFold(repo, filepath.Base(ev.RepoRoot)) {
-		return false
+	if repo != "*" {
+		if !strings.EqualFold(repo, ev.RepoName) && !strings.EqualFold(repo, filepath.Base(ev.RepoRoot)) {
+			return false
+		}
 	}
 	if l.Branch != "" && !strings.EqualFold(strings.TrimSpace(l.Branch), ev.Branch) {
 		return false
@@ -136,26 +141,38 @@ func loadWorktreeLayouts() ([]WorktreeLayout, error) {
 }
 
 // matchWorktreeLayout returns the best matching layout for an event, if any.
-// Among all matching layouts a branch-specific one wins over a repo-only one (it
-// is more specific); ties break by file name, which loadWorktreeLayouts already
-// sorts by.
+// Specificity determines the winner: repo+branch (4) > repo-only (3) >
+// wildcard+branch (2) > wildcard-only (1). Ties at the same score break by
+// filename, which loadWorktreeLayouts already sorts by (first wins).
 func matchWorktreeLayout(layouts []WorktreeLayout, ev worktreeEvent) (WorktreeLayout, bool) {
 	var best WorktreeLayout
-	found := false
+	bestScore := 0
 	for _, l := range layouts {
 		if !l.matches(ev) {
 			continue
 		}
-		if !found {
-			best, found = l, true
-			continue
-		}
-		// A branch-specific match beats the repo-only match we already have.
-		if best.Branch == "" && l.Branch != "" {
-			best = l
+		s := layoutSpecificity(l)
+		if s > bestScore {
+			best, bestScore = l, s
 		}
 	}
-	return best, found
+	return best, bestScore > 0
+}
+
+// layoutSpecificity scores a layout's match precision. Higher is more specific.
+func layoutSpecificity(l WorktreeLayout) int {
+	isWildcard := strings.TrimSpace(l.Repo) == "*"
+	hasBranch := strings.TrimSpace(l.Branch) != ""
+	switch {
+	case !isWildcard && hasBranch:
+		return 4
+	case !isWildcard && !hasBranch:
+		return 3
+	case isWildcard && hasBranch:
+		return 2
+	default:
+		return 1
+	}
 }
 
 // worktreeEvent is the subset of the `worktree.created` payload herdr-plus acts

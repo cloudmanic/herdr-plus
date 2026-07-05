@@ -133,6 +133,7 @@ func TestWorktreeLayoutValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{"valid", WorktreeLayout{Repo: "r", Tabs: []ProjectTab{{Name: "t", Command: "ls"}}}, false},
+		{"wildcard repo", WorktreeLayout{Repo: "*", Tabs: []ProjectTab{{Name: "t"}}}, false},
 		{"no repo", WorktreeLayout{Tabs: []ProjectTab{{Name: "t"}}}, true},
 		{"no tabs", WorktreeLayout{Repo: "r"}, true},
 		{"bad split", WorktreeLayout{Repo: "r", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {Split: "sideways"}}}}}, true},
@@ -143,6 +144,61 @@ func TestWorktreeLayoutValidate(t *testing.T) {
 				t.Fatalf("validate() err = %v, wantErr = %v", err, c.wantErr)
 			}
 		})
+	}
+}
+
+// TestMatchWorktreeLayoutWildcard covers the wildcard repo = "*" matching:
+// a wildcard matches any repo, but a repo-specific layout always wins;
+// a wildcard with a branch filter only matches that branch; and among
+// wildcards, branch-specific beats branch-less.
+func TestMatchWorktreeLayoutWildcard(t *testing.T) {
+	ev, err := parseWorktreeEvent(realEventJSON, mapEnv(nil))
+	if err != nil {
+		t.Fatalf("parseWorktreeEvent: %v", err)
+	}
+
+	wildcard := WorktreeLayout{Repo: "*", Tabs: []ProjectTab{{Name: "w"}}, source: "wildcard.toml"}
+	wildcardBranch := WorktreeLayout{Repo: "*", Branch: "probe-wt", Tabs: []ProjectTab{{Name: "wb"}}, source: "wildcard-branch.toml"}
+	wildcardWrongBranch := WorktreeLayout{Repo: "*", Branch: "main", Tabs: []ProjectTab{{Name: "ww"}}, source: "wildcard-wrong.toml"}
+	repoOnly := WorktreeLayout{Repo: "wt-probe-repo", Tabs: []ProjectTab{{Name: "r"}}, source: "repo.toml"}
+	repoBranch := WorktreeLayout{Repo: "wt-probe-repo", Branch: "probe-wt", Tabs: []ProjectTab{{Name: "rb"}}, source: "repo-branch.toml"}
+
+	// Wildcard matches when no repo-specific layout exists.
+	if got, ok := matchWorktreeLayout([]WorktreeLayout{wildcard}, ev); !ok || got.source != "wildcard.toml" {
+		t.Fatalf("wildcard alone: got %q, %v; want wildcard.toml", got.source, ok)
+	}
+
+	// Repo-specific layout beats wildcard.
+	if got, ok := matchWorktreeLayout([]WorktreeLayout{wildcard, repoOnly}, ev); !ok || got.source != "repo.toml" {
+		t.Fatalf("repo vs wildcard: got %q, %v; want repo.toml", got.source, ok)
+	}
+
+	// Repo+branch beats repo-only beats wildcard+branch beats wildcard-only.
+	all := []WorktreeLayout{wildcard, wildcardBranch, repoOnly, repoBranch}
+	if got, ok := matchWorktreeLayout(all, ev); !ok || got.source != "repo-branch.toml" {
+		t.Fatalf("full priority: got %q, %v; want repo-branch.toml", got.source, ok)
+	}
+
+	// Without repo+branch, repo-only wins.
+	noRepoBranch := []WorktreeLayout{wildcard, wildcardBranch, repoOnly}
+	if got, ok := matchWorktreeLayout(noRepoBranch, ev); !ok || got.source != "repo.toml" {
+		t.Fatalf("no repo+branch: got %q, %v; want repo.toml", got.source, ok)
+	}
+
+	// Without any repo-specific, wildcard+branch wins over wildcard-only.
+	wildcardsOnly := []WorktreeLayout{wildcard, wildcardBranch}
+	if got, ok := matchWorktreeLayout(wildcardsOnly, ev); !ok || got.source != "wildcard-branch.toml" {
+		t.Fatalf("wildcards only: got %q, %v; want wildcard-branch.toml", got.source, ok)
+	}
+
+	// Wildcard with wrong branch does not match.
+	if got, ok := matchWorktreeLayout([]WorktreeLayout{wildcardWrongBranch}, ev); ok {
+		t.Fatalf("wildcard wrong branch: got %q, %v; want no match", got.source, ok)
+	}
+
+	// Wildcard-only still matches even when branch doesn't match any branch filter.
+	if got, ok := matchWorktreeLayout([]WorktreeLayout{wildcardWrongBranch, wildcard}, ev); !ok || got.source != "wildcard.toml" {
+		t.Fatalf("wildcard fallback: got %q, %v; want wildcard.toml", got.source, ok)
 	}
 }
 
@@ -201,6 +257,29 @@ name = "terminal"
 	}
 	if got[1].Repo != "options-cafe" || got[1].Branch != "main" || len(got[1].Tabs) != 2 {
 		t.Fatalf("loaded layout[1] = %+v, want options-cafe/main with 2 tabs", got[1])
+	}
+
+	// A wildcard layout file loads alongside repo-specific ones.
+	wildcardLayout := `repo = "*"
+
+[[tabs]]
+name = "default"
+command = "claude"
+`
+	if err := os.WriteFile(filepath.Join(dir, "default.toml"), []byte(wildcardLayout), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err = loadWorktreeLayouts()
+	if err != nil {
+		t.Fatalf("loadWorktreeLayouts (with wildcard): %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("got %d layouts, want 3", len(got))
+	}
+	// Sorted by file name: bevio.toml, default.toml, options-cafe.toml.
+	if got[1].Repo != "*" || len(got[1].Tabs) != 1 || got[1].Tabs[0].Command != "claude" {
+		t.Fatalf("loaded wildcard layout = %+v, want repo=* with 1 tab", got[1])
 	}
 
 	// A malformed file fails the whole load with a naming error.
