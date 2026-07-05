@@ -40,10 +40,11 @@ type scoredItem struct {
 // separators, and rendering live here once (and stay reusable for future
 // pickers).
 type fuzzyList struct {
-	input    textinput.Model
-	items    []listItem
-	filtered []scoredItem
-	cursor   int
+	input     textinput.Model
+	items     []listItem
+	filtered  []scoredItem
+	cursor    int
+	lastQuery string
 }
 
 // newFuzzyList builds a list over items with a focused, empty query box.
@@ -65,6 +66,10 @@ func newFuzzyList(placeholder string, items []listItem) fuzzyList {
 // matches that land inside the name.
 func (l *fuzzyList) filter() {
 	q := strings.TrimSpace(l.input.Value())
+	if q != l.lastQuery {
+		l.cursor = 0
+		l.lastQuery = q
+	}
 	l.filtered = l.filtered[:0]
 
 	if q == "" {
