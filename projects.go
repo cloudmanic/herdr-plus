@@ -7,6 +7,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -110,18 +111,46 @@ func openProject(client *herdrClient, p Project) error {
 	return layoutTabs(client, ws, rootTab, rootPane, p.Tabs)
 }
 
+// openProjectAsWorktree creates a git worktree from the project's working
+// directory instead of opening the project as a normal workspace. It resolves and
+// validates the directory, confirms it is inside a git work tree (worktrees
+// require one — a clearer error than herdr's if not), and asks herdr to create the
+// worktree, focused. The new workspace's tabs are not laid out here: herdr's
+// worktree.created event drives the worktree auto-layout, so a matching file in
+// worktrees/ fills the workspace. Without one the worktree opens bare — the
+// project's own [[tabs]] are not used for this path.
 func openProjectAsWorktree(client *herdrClient, p Project, branch string) error {
+	// filepath.Abs already returns an absolute path (or an error), so no separate
+	// IsAbs check is needed after it.
 	dir, err := filepath.Abs(p.expandedWorkingDir())
 	if err != nil {
 		return fmt.Errorf("resolve working directory: %w", err)
 	}
-	if !filepath.IsAbs(dir) {
-		return fmt.Errorf("working directory is not absolute: %s", dir)
-	}
 	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 		return fmt.Errorf("working directory does not exist: %s", dir)
 	}
+	if !isInsideGitWorkTree(dir) {
+		return fmt.Errorf("not a git repository: %s (opening as a worktree requires one)", dir)
+	}
 	return client.worktreeCreate(dir, branch, true)
+}
+
+// isInsideGitWorkTree reports whether dir is inside a git work tree, so
+// openProjectAsWorktree can give a clear error before asking herdr to create a
+// worktree there. It shells out to git: when git runs and reports the directory is
+// not a work tree it returns false, but when git cannot be run at all (not
+// installed / not on PATH) it returns true, deferring the real check to herdr
+// rather than blocking on git's absence.
+func isInsideGitWorkTree(dir string) bool {
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree").Output()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return false // git ran and said this is not a work tree
+		}
+		return true // git could not run — let herdr make the call
+	}
+	return strings.TrimSpace(string(out)) == "true"
 }
 
 // layoutTabs lays an ordered list of tabs — each with its panes and optional

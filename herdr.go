@@ -100,6 +100,11 @@ func worktreeCreateParams(cwd, branch string, focus bool) map[string]any {
 	return params
 }
 
+// worktreeCreate asks herdr to create a git worktree from the repo at cwd, on the
+// given branch (blank lets herdr generate a worktree/<name> branch), and — when
+// focus is true — switch to its new workspace. herdr fires a worktree.created
+// event, which the worktree auto-layout handler reacts to; we do not read the
+// response, so the layout is applied by that handler rather than here.
 func (c *herdrClient) worktreeCreate(cwd, branch string, focus bool) error {
 	return c.call("worktree.create", worktreeCreateParams(cwd, branch, focus), nil)
 }
