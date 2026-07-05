@@ -81,6 +81,12 @@ Inside the browser, **Enter** opens the highlighted project as a normal workspac
 branch name: empty lets herdr generate `worktree/...`, bare names get the optional
 `[worktree] branch_prefix`, and names containing `/` are used as-is.
 
+Opening as a worktree fills its tabs from a matching
+[worktree auto-layout](#worktree-auto-layout) — a file in `worktrees/` whose `repo`
+matches — **not** the project's own `[[tabs]]`. Without a matching layout the
+worktree opens with herdr's default single pane, so add a `worktrees/` file for any
+repo you open this way.
+
 A project is one TOML file in the `projects/` subdir of
 [herdr-plus's config dir](#configuration). The file name doesn't matter; add a
 file to add a project, delete it to remove it. With no files there, the browser

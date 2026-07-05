@@ -270,6 +270,11 @@ func (m projectsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// updateBranch handles input while the worktree branch prompt is showing (the
+// modeBranch state entered by ctrl+g). Enter confirms: it marks the choice as a
+// worktree and resolves the typed name through the configured prefix, then quits
+// so runProjectsUI opens it. Esc backs out to the list, clearing the pending
+// choice. Every other key — and the cursor-blink tick — flows to the text input.
 func (m projectsModel) updateBranch(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -321,6 +326,9 @@ func (m projectsModel) activateProject() (tea.Model, tea.Cmd) {
 	return m, tea.Quit
 }
 
+// promptWorktreeBranch switches the browser into its branch-entry mode for the
+// highlighted project, resetting the input to empty and focusing it. It is the
+// ctrl+g entry point; with nothing selectable it is a no-op.
 func (m projectsModel) promptWorktreeBranch() (tea.Model, tea.Cmd) {
 	idx := m.list.selectedIndex()
 	if idx < 0 {
@@ -385,6 +393,9 @@ func (m projectsModel) browserView(w, h int) string {
 	return top + strings.Repeat("\n", gap) + bottom
 }
 
+// branchView renders the worktree branch prompt: the chosen project's name and
+// working directory above a single-line input for the optional branch name, with
+// a footer explaining enter/esc. It backs the modeBranch state.
 func (m projectsModel) branchView(w, h int) string {
 	header := headerBarStyle.Width(w).Render(projectsTitle)
 

@@ -25,8 +25,15 @@ import (
 //go:embed examples
 var embeddedExamples embed.FS
 
+// PluginConfig holds herdr-plus's optional global settings, read from config.toml
+// at the config root (alongside projects/ and quick-actions/). Every field is
+// optional; an absent file yields the zero value.
 type PluginConfig struct {
 	Worktree struct {
+		// BranchPrefix is prepended to a bare worktree branch name typed in the
+		// projects browser (ctrl+g). It is used verbatim, so include any trailing
+		// "/" yourself. Empty disables prefixing; a name that already contains "/"
+		// is left untouched (see resolveWorktreeBranch).
 		BranchPrefix string `toml:"branch_prefix"`
 	} `toml:"worktree"`
 }
@@ -56,6 +63,9 @@ func configBaseDir() (string, error) {
 	return filepath.Join(home, ".config", "herdr-plus"), nil
 }
 
+// configFilePath returns the path to herdr-plus's optional global config file,
+// config.toml at the config root (the same directory that holds projects/ and
+// quick-actions/).
 func configFilePath() (string, error) {
 	base, err := configBaseDir()
 	if err != nil {
@@ -64,6 +74,10 @@ func configFilePath() (string, error) {
 	return filepath.Join(base, "config.toml"), nil
 }
 
+// loadPluginConfig reads and parses config.toml, returning zero-value settings
+// when the file is absent — the config is entirely optional. A malformed file is
+// a real error, surfaced to the caller instead of being silently ignored, so a
+// typo does not quietly drop a setting.
 func loadPluginConfig() (PluginConfig, error) {
 	var cfg PluginConfig
 	path, err := configFilePath()
