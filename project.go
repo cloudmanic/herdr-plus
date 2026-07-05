@@ -34,6 +34,7 @@ const maxPanesPerTab = 4
 type ProjectPane struct {
 	Command string `toml:"command"`
 	Split   string `toml:"split"`
+	Label   string `toml:"label"`
 }
 
 // ProjectTab is one tab in a project's workspace, in the order it should be

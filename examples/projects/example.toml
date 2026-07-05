@@ -30,9 +30,11 @@ command = "spiceedit"
 name = "server"
 
 [[tabs.panes]]
+label = "Server"
 command = "php artisan serve"
 
 [[tabs.panes]]
+label = "Assets"
 command = "npm run dev"
 split = "down"
 

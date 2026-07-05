@@ -419,6 +419,15 @@ func (c *herdrClient) tabRename(tabID, label string) error {
 	}, nil)
 }
 
+// paneRename sets a pane's human label — the name shown on pane borders and
+// in pane lists.
+func (c *herdrClient) paneRename(paneID, label string) error {
+	return c.call("pane.rename", map[string]any{
+		"pane_id": paneID,
+		"label":   label,
+	}, nil)
+}
+
 // workspaceClose tears down a whole workspace and all of its tabs and panes.
 func (c *herdrClient) workspaceClose(workspaceID string) error {
 	return c.call("workspace.close", map[string]any{
