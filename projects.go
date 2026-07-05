@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -51,12 +52,17 @@ func runProjectsUI() {
 		errExit(err)
 	}
 
+	cfg, err := loadPluginConfig()
+	if err != nil {
+		errExit(err)
+	}
+
 	dir, _ := projectsConfigDir()
 
 	// WithMouseCellMotion enables click/release/wheel events so a project can be
 	// opened with the mouse. herdr forwards these to us once we ask for them;
 	// until then it keeps the mouse for its own pane focus/selection.
-	p := tea.NewProgram(newProjectsModel(projects, dir), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(newProjectsModel(projects, dir, cfg.Worktree.BranchPrefix), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	result, err := p.Run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "herdr-plus:", err)
@@ -72,6 +78,12 @@ func runProjectsUI() {
 	client, err := newHerdrClient()
 	if err != nil {
 		errExit(err)
+	}
+	if m.worktree {
+		if err := openProjectAsWorktree(client, *m.chosen, m.branch); err != nil {
+			errExit("could not open project as worktree:", err)
+		}
+		return
 	}
 	if err := openProject(client, *m.chosen); err != nil {
 		errExit("could not open project:", err)
@@ -96,6 +108,20 @@ func openProject(client *herdrClient, p Project) error {
 
 	// Lay the project's tabs into the new workspace.
 	return layoutTabs(client, ws, rootTab, rootPane, p.Tabs)
+}
+
+func openProjectAsWorktree(client *herdrClient, p Project, branch string) error {
+	dir, err := filepath.Abs(p.expandedWorkingDir())
+	if err != nil {
+		return fmt.Errorf("resolve working directory: %w", err)
+	}
+	if !filepath.IsAbs(dir) {
+		return fmt.Errorf("working directory is not absolute: %s", dir)
+	}
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		return fmt.Errorf("working directory does not exist: %s", dir)
+	}
+	return client.worktreeCreate(dir, branch, true)
 }
 
 // layoutTabs lays an ordered list of tabs — each with its panes and optional

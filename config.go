@@ -25,6 +25,12 @@ import (
 //go:embed examples
 var embeddedExamples embed.FS
 
+type PluginConfig struct {
+	Worktree struct {
+		BranchPrefix string `toml:"branch_prefix"`
+	} `toml:"worktree"`
+}
+
 // configBaseDir returns the root configuration directory for herdr-plus's
 // projects and quick-actions.
 //
@@ -48,6 +54,29 @@ func configBaseDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, ".config", "herdr-plus"), nil
+}
+
+func configFilePath() (string, error) {
+	base, err := configBaseDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, "config.toml"), nil
+}
+
+func loadPluginConfig() (PluginConfig, error) {
+	var cfg PluginConfig
+	path, err := configFilePath()
+	if err != nil {
+		return cfg, err
+	}
+	if _, err := toml.DecodeFile(path, &cfg); err != nil {
+		if os.IsNotExist(err) {
+			return cfg, nil
+		}
+		return cfg, err
+	}
+	return cfg, nil
 }
 
 // quickActionsConfigDir returns the directory that holds quick-action files,

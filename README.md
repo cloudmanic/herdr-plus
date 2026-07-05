@@ -64,11 +64,22 @@ Inside it, `projects/` holds your [project templates](#projects) and
 and keeps it across uninstall/upgrade. (Running the binary *outside* herdr falls
 back to `~/.config/herdr-plus/`, honoring `$XDG_CONFIG_HOME`.)
 
+Optional global settings live in `config.toml` in that same directory:
+
+```toml
+[worktree]
+branch_prefix = "your-name/" # used verbatim; include your own trailing /
+```
+
 ## Projects
 
 Pick a project from a full-screen fuzzy browser and herdr-plus builds its whole
 workspace. Trigger it from herdr's plugin action menu, or
 [bind a key](#binding-a-key) — the action is `cloudmanic.herdr-plus.projects`.
+Inside the browser, **Enter** opens the highlighted project as a normal workspace;
+**ctrl+g** opens it as a git worktree. The worktree prompt accepts an optional
+branch name: empty lets herdr generate `worktree/...`, bare names get the optional
+`[worktree] branch_prefix`, and names containing `/` are used as-is.
 
 A project is one TOML file in the `projects/` subdir of
 [herdr-plus's config dir](#configuration). The file name doesn't matter; add a

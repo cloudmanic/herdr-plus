@@ -35,7 +35,7 @@ func step(t *testing.T, m projectsModel, msg tea.Msg) projectsModel {
 // TestNewProjectsModelItems confirms each project becomes a selectable list row
 // carrying its name, description, and original index.
 func TestNewProjectsModelItems(t *testing.T) {
-	m := newProjectsModel(sampleProjects(), "/cfg/projects")
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "")
 	if len(m.list.items) != 2 {
 		t.Fatalf("got %d list items, want 2", len(m.list.items))
 	}
@@ -119,7 +119,7 @@ func TestOrderProjectsByGroupHeadings(t *testing.T) {
 // the cursor starts on the first project under the first heading (skipping the
 // heading row), and entering opens the project its ref points at.
 func TestProjectsModelGroupedSelect(t *testing.T) {
-	m := newProjectsModel(groupedProjects(), "/cfg/projects")
+	m := newProjectsModel(groupedProjects(), "/cfg/projects", "")
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 
 	// Cursor parks on the first selectable row, not the "Acme" heading.
@@ -141,7 +141,7 @@ func TestProjectsModelGroupedSelect(t *testing.T) {
 // query collapses the grouped view to a single ranked list with no headings, and
 // enter opens the lone match.
 func TestProjectsModelGroupedFilterDropsHeadings(t *testing.T) {
-	m := newProjectsModel(groupedProjects(), "/cfg/projects")
+	m := newProjectsModel(groupedProjects(), "/cfg/projects", "")
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = step(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("loose")})
 
@@ -159,7 +159,7 @@ func TestProjectsModelGroupedFilterDropsHeadings(t *testing.T) {
 // TestProjectsModelEnterSelects confirms pressing enter records the highlighted
 // project and signals a quit.
 func TestProjectsModelEnterSelects(t *testing.T) {
-	m := newProjectsModel(sampleProjects(), "/cfg/projects")
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "")
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = step(t, m, tea.KeyMsg{Type: tea.KeyDown}) // move to Bravo
 	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
@@ -174,7 +174,7 @@ func TestProjectsModelEnterSelects(t *testing.T) {
 
 // TestProjectsModelEscCancels confirms esc records no selection.
 func TestProjectsModelEscCancels(t *testing.T) {
-	m := newProjectsModel(sampleProjects(), "/cfg/projects")
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "")
 	m = step(t, m, tea.KeyMsg{Type: tea.KeyEsc})
 
 	if m.chosen != nil {
@@ -188,7 +188,7 @@ func TestProjectsModelEscCancels(t *testing.T) {
 // TestProjectsModelFilterThenSelect confirms typing narrows the list and enter
 // then opens the single remaining match.
 func TestProjectsModelFilterThenSelect(t *testing.T) {
-	m := newProjectsModel(sampleProjects(), "/cfg/projects")
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "")
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = step(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("brav")})
 	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
@@ -202,7 +202,7 @@ func TestProjectsModelFilterThenSelect(t *testing.T) {
 // row opens it — the click counterpart to enter. With the title bar and query
 // line above, the two projects sit at screen rows 4 (Alpha) and 5 (Bravo).
 func TestProjectsModelMouseClickOpens(t *testing.T) {
-	m := newProjectsModel(sampleProjects(), "/cfg/projects")
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "")
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = step(t, m, tea.MouseMsg{
 		Action: tea.MouseActionRelease,
@@ -218,7 +218,7 @@ func TestProjectsModelMouseClickOpens(t *testing.T) {
 // TestProjectsModelMouseWheelMoves confirms the scroll wheel walks the highlight
 // without opening anything.
 func TestProjectsModelMouseWheelMoves(t *testing.T) {
-	m := newProjectsModel(sampleProjects(), "/cfg/projects")
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "")
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = step(t, m, tea.MouseMsg{Action: tea.MouseActionPress, Button: tea.MouseButtonWheelDown})
 
@@ -230,11 +230,119 @@ func TestProjectsModelMouseWheelMoves(t *testing.T) {
 	}
 }
 
+// TestProjectsModelCtrlGEntersBranchMode confirms ctrl+g on a selectable row
+// switches to the worktree branch prompt with an empty, focused input.
+func TestProjectsModelCtrlGEntersBranchMode(t *testing.T) {
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "dvic/")
+	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyCtrlG})
+
+	if m.mode != modeBranch {
+		t.Fatalf("mode = %v, want modeBranch", m.mode)
+	}
+	if m.chosen == nil || m.chosen.Name != "Alpha" {
+		t.Fatalf("chosen = %v, want Alpha", m.chosen)
+	}
+	if m.branchInput.Value() != "" {
+		t.Fatalf("branch input = %q, want empty", m.branchInput.Value())
+	}
+	if !m.branchInput.Focused() {
+		t.Fatal("branch input should be focused")
+	}
+}
+
+// TestProjectsModelBranchEnterTyped confirms entering a bare branch name opens a
+// worktree and resolves it through the configured prefix.
+func TestProjectsModelBranchEnterTyped(t *testing.T) {
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "dvic/")
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyCtrlG})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("feature")})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+
+	if !m.worktree {
+		t.Fatal("enter in branch mode should mark worktree")
+	}
+	if m.chosen == nil || m.chosen.Name != "Alpha" {
+		t.Fatalf("chosen = %v, want Alpha", m.chosen)
+	}
+	if m.branch != "dvic/feature" {
+		t.Fatalf("branch = %q, want dvic/feature", m.branch)
+	}
+}
+
+// TestProjectsModelBranchEnterEmpty confirms an empty branch stays empty so
+// herdr can generate its native worktree branch name.
+func TestProjectsModelBranchEnterEmpty(t *testing.T) {
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "dvic/")
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyCtrlG})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+
+	if !m.worktree {
+		t.Fatal("enter in branch mode should mark worktree")
+	}
+	if m.branch != "" {
+		t.Fatalf("branch = %q, want empty", m.branch)
+	}
+}
+
+// TestProjectsModelBranchEscReturnsToList confirms escape backs out of the
+// branch prompt without choosing a worktree.
+func TestProjectsModelBranchEscReturnsToList(t *testing.T) {
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "dvic/")
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyCtrlG})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEsc})
+
+	if m.mode != modeList {
+		t.Fatalf("mode = %v, want modeList", m.mode)
+	}
+	if m.worktree {
+		t.Fatal("esc should not mark worktree")
+	}
+}
+
+// TestProjectsModelCtrlGOnHeadingNoops confirms ctrl+g only opens branch mode
+// when the highlighted row maps to a project.
+func TestProjectsModelCtrlGOnHeadingNoops(t *testing.T) {
+	m := newProjectsModel(groupedProjects(), "/cfg/projects", "dvic/")
+	m.list.cursor = 0 // "Acme" heading, not selectable.
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyCtrlG})
+
+	if m.mode != modeList {
+		t.Fatalf("mode = %v, want modeList", m.mode)
+	}
+	if m.chosen != nil {
+		t.Fatalf("chosen = %v, want nil", m.chosen)
+	}
+}
+
+// TestProjectsModelBranchModeIgnoresMouse confirms a click while the branch
+// prompt is open cannot activate the list row underneath.
+func TestProjectsModelBranchModeIgnoresMouse(t *testing.T) {
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "")
+	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyCtrlG})
+	m = step(t, m, tea.MouseMsg{
+		Action: tea.MouseActionRelease,
+		Button: tea.MouseButtonLeft,
+		Y:      5,
+	})
+
+	if m.mode != modeBranch {
+		t.Fatalf("mode = %v, want modeBranch", m.mode)
+	}
+	if m.worktree {
+		t.Fatal("mouse in branch mode should not activate a row")
+	}
+	if m.chosen == nil || m.chosen.Name != "Alpha" {
+		t.Fatalf("chosen = %v, want the original Alpha target", m.chosen)
+	}
+}
+
 // TestProjectsModelBrowserView confirms the populated view shows the header, the
 // project names, and the highlighted project's working directory in the detail
 // bar.
 func TestProjectsModelBrowserView(t *testing.T) {
-	m := newProjectsModel(sampleProjects(), "/cfg/projects")
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "")
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	view := m.View()
 
@@ -248,7 +356,7 @@ func TestProjectsModelBrowserView(t *testing.T) {
 // TestProjectsModelEmptyState confirms that with no projects the onboarding card
 // renders (with the config path and docs link) and any exit key closes it.
 func TestProjectsModelEmptyState(t *testing.T) {
-	m := newProjectsModel(nil, "/cfg/projects")
+	m := newProjectsModel(nil, "/cfg/projects", "")
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 40})
 	view := m.View()
 
