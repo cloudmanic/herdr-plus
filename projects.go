@@ -9,7 +9,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -194,7 +193,8 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane string, tabs []Projec
 			}
 			if lbl := strings.TrimSpace(pane.Label); lbl != "" {
 				if err := client.paneRename(paneID, lbl); err != nil {
-					log.Printf("warning: failed to label pane %d in tab %q: %v", j+1, t.Name, err)
+					// Labeling is cosmetic — warn but keep building the workspace.
+					fmt.Fprintf(os.Stderr, "herdr-plus: failed to label pane %d in tab %q: %v\n", j+1, t.Name, err)
 				}
 			}
 			if strings.TrimSpace(pane.Command) != "" {
