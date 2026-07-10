@@ -12,6 +12,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -45,6 +46,14 @@ type fuzzyList struct {
 	filtered  []scoredItem
 	cursor    int
 	lastQuery string
+
+	// Viewport. maxRows caps how many body lines view() emits, scrolling the
+	// window (lineOffset) so the cursor's row stays visible; maxWidth
+	// hard-truncates every rendered line so nothing soft-wraps in the terminal
+	// and breaks the list's line accounting. Zero means unbounded.
+	maxRows    int
+	maxWidth   int
+	lineOffset int
 }
 
 // newFuzzyList builds a list over items with a focused, empty query box.
@@ -57,6 +66,64 @@ func newFuzzyList(placeholder string, items []listItem) fuzzyList {
 	l := fuzzyList{input: ti, items: items}
 	l.filter()
 	return l
+}
+
+// setViewport tells the list how much room it has: rows is the body-line budget
+// below the query/prompt block, width the hard cap on any rendered line's
+// display columns. Zero or negative disables the corresponding limit.
+func (l *fuzzyList) setViewport(rows, width int) {
+	l.maxRows = rows
+	l.maxWidth = width
+	l.ensureVisible()
+}
+
+// lineOf returns the body-line index (0 = the first line after the query/prompt
+// block) where filtered[target] renders, using the same accounting as view()
+// and rowIndexAt: one line per selectable row, a blank plus an optional heading
+// line per separator. A target past the end returns the body's total line
+// count.
+func (l *fuzzyList) lineOf(target int) int {
+	line := 0
+	for i, s := range l.filtered {
+		if i == target {
+			break
+		}
+		if !s.item.selectable {
+			line++ // the separator's leading blank line
+			if s.item.name != "" {
+				line++ // its heading line
+			}
+			continue
+		}
+		line++
+	}
+	return line
+}
+
+// ensureVisible scrolls lineOffset so the cursor's row sits inside the
+// viewport, clamping the window to the body's real extent. With no row budget
+// the list never scrolls.
+func (l *fuzzyList) ensureVisible() {
+	if l.maxRows <= 0 {
+		l.lineOffset = 0
+		return
+	}
+	if max := l.lineOf(len(l.filtered)) - l.maxRows; l.lineOffset > max {
+		l.lineOffset = max
+	}
+	if l.lineOffset < 0 {
+		l.lineOffset = 0
+	}
+	if len(l.filtered) == 0 {
+		return
+	}
+	cur := l.lineOf(l.cursor)
+	if cur < l.lineOffset {
+		l.lineOffset = cur
+	}
+	if cur >= l.lineOffset+l.maxRows {
+		l.lineOffset = cur - l.maxRows + 1
+	}
 }
 
 // filter recomputes the visible rows from the current query. An empty query
@@ -77,6 +144,7 @@ func (l *fuzzyList) filter() {
 			l.filtered = append(l.filtered, scoredItem{item: it})
 		}
 		l.clampCursor()
+		l.ensureVisible()
 		return
 	}
 
@@ -103,6 +171,7 @@ func (l *fuzzyList) filter() {
 	}
 
 	l.clampCursor()
+	l.ensureVisible()
 }
 
 // clampCursor keeps the cursor in range and parked on a selectable row, moving
@@ -142,6 +211,7 @@ func (l *fuzzyList) moveUp() {
 	for i := l.cursor - 1; i >= 0; i-- {
 		if l.filtered[i].item.selectable {
 			l.cursor = i
+			l.ensureVisible()
 			return
 		}
 	}
@@ -151,6 +221,7 @@ func (l *fuzzyList) moveDown() {
 	for i := l.cursor + 1; i < len(l.filtered); i++ {
 		if l.filtered[i].item.selectable {
 			l.cursor = i
+			l.ensureVisible()
 			return
 		}
 	}
@@ -179,9 +250,17 @@ const listPromptLines = 2
 // is the prompt, a blank spacer, a separator/heading, or past the end of the
 // list. It mirrors view()'s exact line accounting — the prompt line, the blank
 // spacer, then one line per selectable row and a blank (plus an optional heading
-// line) per separator — so this and view() must change together.
+// line) per separator, offset by the viewport's scroll position — so this and
+// view() must change together.
 func (l *fuzzyList) rowIndexAt(y int) int {
-	line := listPromptLines
+	if y < listPromptLines {
+		return -1 // the query/prompt block, never a row
+	}
+	body := y - listPromptLines + l.lineOffset
+	if l.maxRows > 0 && body >= l.lineOffset+l.maxRows {
+		return -1 // below the visible window
+	}
+	line := 0
 	for i, s := range l.filtered {
 		if !s.item.selectable {
 			line++ // the separator's leading blank line
@@ -190,7 +269,7 @@ func (l *fuzzyList) rowIndexAt(y int) int {
 			}
 			continue
 		}
-		if line == y {
+		if line == body {
 			return i
 		}
 		line++
@@ -222,7 +301,9 @@ func (l *fuzzyList) editQuery(msg tea.Msg) tea.Cmd {
 
 // view renders the query line, the match count (selectable rows only), and the
 // result rows. Separators render as a blank line plus an optional dim heading;
-// emptyMsg is shown when no selectable row matches the query.
+// emptyMsg is shown when no selectable row matches the query. When a viewport
+// is set (setViewport) only the maxRows-line window at lineOffset is emitted,
+// and every line is truncated to maxWidth so nothing soft-wraps.
 func (l fuzzyList) view(emptyMsg string) string {
 	var b strings.Builder
 
@@ -244,32 +325,53 @@ func (l fuzzyList) view(emptyMsg string) string {
 	b.WriteString(countStyle.Render(fmt.Sprintf("%d/%d", matched, total)))
 	b.WriteString("\n\n")
 
+	// Build the body one screen line at a time so the viewport can slice it.
+	// The accounting here must stay in step with lineOf / rowIndexAt.
+	var lines []string
 	if matched == 0 {
-		b.WriteString(descStyle.Render("  " + emptyMsg))
-		b.WriteString("\n")
+		lines = append(lines, descStyle.Render("  "+emptyMsg))
 	}
 	for i, s := range l.filtered {
 		it := s.item
 		if !it.selectable {
 			// A blank line separates groups; a heading (if any) labels the group.
-			b.WriteString("\n")
+			lines = append(lines, "")
 			if it.name != "" {
-				b.WriteString(headingStyle.Render(it.name))
-				b.WriteString("\n")
+				lines = append(lines, headingStyle.Render(it.name))
 			}
 			continue
 		}
 		selected := i == l.cursor
+		var row strings.Builder
 		if selected {
-			b.WriteString(barStyle.Render("▌ "))
+			row.WriteString(barStyle.Render("▌ "))
 		} else {
-			b.WriteString("  ")
+			row.WriteString("  ")
 		}
-		b.WriteString(highlightName(it.name, s.matched, selected))
+		row.WriteString(highlightName(it.name, s.matched, selected))
 		if it.desc != "" {
-			b.WriteString("  ")
-			b.WriteString(descStyle.Render(it.desc))
+			row.WriteString("  ")
+			row.WriteString(descStyle.Render(it.desc))
 		}
+		lines = append(lines, row.String())
+	}
+
+	if l.maxRows > 0 && len(lines) > l.maxRows {
+		start := l.lineOffset
+		if max := len(lines) - l.maxRows; start > max {
+			start = max
+		}
+		if start < 0 {
+			start = 0
+		}
+		lines = lines[start : start+l.maxRows]
+	}
+
+	for _, ln := range lines {
+		if l.maxWidth > 0 {
+			ln = ansi.Truncate(ln, l.maxWidth, "…")
+		}
+		b.WriteString(ln)
 		b.WriteString("\n")
 	}
 	return b.String()
