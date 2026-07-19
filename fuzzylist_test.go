@@ -7,6 +7,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -133,6 +134,89 @@ func TestFuzzyListRowIndexAtMatchesView(t *testing.T) {
 	if got := l.rowIndexAt(len(lines) + 5); got != -1 {
 		t.Fatalf("rowIndexAt past the end = %d, want -1", got)
 	}
+}
+
+// manyItems returns n selectable rows, useful for exercising the scroll window.
+func manyItems(n int) []listItem {
+	items := make([]listItem, n)
+	for i := 0; i < n; i++ {
+		items[i] = listItem{name: fmt.Sprintf("row-%02d", i), selectable: true, ref: i}
+	}
+	return items
+}
+
+// TestFuzzyListWindowFitsBudget confirms a list taller than its budget is clamped
+// to at most maxLines rendered lines, keeps the cursor row visible, and brackets
+// the clipped list with scroll hints.
+func TestFuzzyListWindowFitsBudget(t *testing.T) {
+	l := newFuzzyList("", manyItems(40))
+
+	const maxLines = 12
+	// Move the cursor into the middle so both hints should appear.
+	for i := 0; i < 20; i++ {
+		l.moveDown()
+	}
+
+	lines := l.buildLines("none", maxLines)
+	if len(lines) > maxLines {
+		t.Fatalf("rendered %d lines, want <= %d", len(lines), maxLines)
+	}
+
+	// The highlighted row must be somewhere in the rendered window.
+	found := false
+	for _, ln := range lines {
+		if ln.idx == l.cursor {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("cursor row (filtered idx %d) not in the rendered window", l.cursor)
+	}
+
+	joined := l.viewLimited("none", maxLines)
+	if !strings.Contains(joined, "↑") || !strings.Contains(joined, "↓") {
+		t.Fatalf("expected both scroll hints on a mid-list window:\n%s", joined)
+	}
+}
+
+// TestFuzzyListWindowUnboundedRendersAll confirms maxLines == 0 keeps the old
+// whole-list behaviour: every row present, no scroll hints.
+func TestFuzzyListWindowUnboundedRendersAll(t *testing.T) {
+	l := newFuzzyList("", manyItems(40))
+	got := l.view("none")
+	if strings.Contains(got, "↑") || strings.Contains(got, "↓") {
+		t.Fatalf("unbounded view should have no scroll hints:\n%s", got)
+	}
+	if !strings.Contains(got, "row-39") {
+		t.Fatal("unbounded view should render the last row")
+	}
+}
+
+// TestFuzzyListClickRowLimitedMapsWindow confirms a click on a scrolled list maps
+// to the row actually shown at that screen line, not the unscrolled position.
+func TestFuzzyListClickRowLimitedMapsWindow(t *testing.T) {
+	l := newFuzzyList("", manyItems(40))
+	const maxLines = 12
+	for i := 0; i < 20; i++ {
+		l.moveDown()
+	}
+
+	lines := l.buildLines("none", maxLines)
+	// Find a rendered screen line that carries a selectable row and click it.
+	for y, ln := range lines {
+		if ln.idx < 0 {
+			continue
+		}
+		want := ln.idx
+		if !l.clickRowLimited(y, maxLines) {
+			t.Fatalf("clickRowLimited(%d) reported no hit on a row line", y)
+		}
+		if l.cursor != want {
+			t.Fatalf("clickRowLimited(%d) set cursor %d, want %d", y, l.cursor, want)
+		}
+		return
+	}
+	t.Fatal("no selectable row line found in the windowed render")
 }
 
 // TestFuzzyListClickRow confirms clicking a row's line moves the highlight there

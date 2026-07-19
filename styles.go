@@ -27,4 +27,7 @@ var (
 	barStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#A78BFA")).Bold(true)
 	footerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#4B5563"))
 	headingStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#8B5CF6")).Bold(true)
+
+	// scrollHintStyle dims the "↑/↓ N more" markers that bracket a scrolled list.
+	scrollHintStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Italic(true)
 )

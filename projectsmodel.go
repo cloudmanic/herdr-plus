@@ -28,6 +28,9 @@ const docsURL = "https://github.com/cloudmanic/herdr-plus"
 // mouse click's screen row minus this offset is the list-local line for clickRow.
 const projectsHeaderLines = 2
 
+// browserFooter is the hint line pinned to the bottom of the projects browser.
+const browserFooter = "  ↑/↓ move · type to filter · click/enter open · esc quit"
+
 // Projects-browser styles. These build on the shared palette in styles.go
 // (titleStyle, nameStyle, descStyle, footerStyle, …); here we add the few extra
 // pieces the full-screen browser needs.
@@ -233,8 +236,10 @@ func (m projectsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.list.moveDown()
 		case tea.MouseButtonLeft:
 			// Move the highlight to the clicked row, opening it on release — the
-			// natural completion of a click.
-			if m.list.clickRow(msg.Y-projectsHeaderLines) && msg.Action == tea.MouseActionRelease {
+			// natural completion of a click. The list is scrolled to the same budget
+			// browserView renders with, so the click maps to the row actually shown.
+			w, h := m.dims()
+			if m.list.clickRowLimited(msg.Y-projectsHeaderLines, m.listBudget(w, h)) && msg.Action == tea.MouseActionRelease {
 				return m.activateProject()
 			}
 		}
@@ -259,14 +264,9 @@ func (m projectsModel) activateProject() (tea.Model, tea.Cmd) {
 	return m, tea.Quit
 }
 
-// View renders the screen for the current state: the onboarding card when there
-// are no projects, otherwise the header / list / detail-bar / footer layout.
-func (m projectsModel) View() string {
-	if m.quitting {
-		return ""
-	}
-
-	// Fall back to a sane size until the first WindowSizeMsg arrives.
+// dims returns the current terminal size, falling back to a sane default until
+// the first WindowSizeMsg arrives.
+func (m projectsModel) dims() (int, int) {
 	w, h := m.width, m.height
 	if w <= 0 {
 		w = 80
@@ -274,23 +274,49 @@ func (m projectsModel) View() string {
 	if h <= 0 {
 		h = 24
 	}
+	return w, h
+}
 
+// View renders the screen for the current state: the onboarding card when there
+// are no projects, otherwise the header / list / detail-bar / footer layout.
+func (m projectsModel) View() string {
+	if m.quitting {
+		return ""
+	}
+
+	w, h := m.dims()
 	if len(m.projects) == 0 {
 		return m.emptyView(w, h)
 	}
 	return m.browserView(w, h)
 }
 
+// listBudget is the number of screen lines the fuzzy list may occupy: the full
+// height minus the title bar, the blank line under it, the pinned detail bar +
+// footer, and one line of minimum gap. Keeping it a shared method means the
+// renderer and the mouse hit-testing scroll the list to exactly the same window.
+func (m projectsModel) listBudget(w, h int) int {
+	header := headerBarStyle.Width(w).Render(projectsTitle)
+	bottom := m.detailBar(w) + "\n" + footerStyle.Render(browserFooter)
+
+	budget := h - lipgloss.Height(header) - 1 - lipgloss.Height(bottom) - 1
+	if budget < listPromptLines+1 {
+		budget = listPromptLines + 1
+	}
+	return budget
+}
+
 // browserView lays out the populated projects browser: a full-width title bar up
-// top, the fuzzy list below it, and the highlighted project's detail bar pinned
-// just above the footer at the bottom of the screen.
+// top, the fuzzy list (scrolled to fit the space between) below it, and the
+// highlighted project's detail bar pinned just above the footer at the bottom of
+// the screen.
 func (m projectsModel) browserView(w, h int) string {
 	header := headerBarStyle.Width(w).Render(projectsTitle)
 
-	body := m.list.view("no matching projects")
+	body := m.list.viewLimited("no matching projects", m.listBudget(w, h))
 
 	detail := m.detailBar(w)
-	footer := footerStyle.Render("  ↑/↓ move · type to filter · click/enter open · esc quit")
+	footer := footerStyle.Render(browserFooter)
 
 	top := header + "\n\n" + body
 	bottom := detail + "\n" + footer
