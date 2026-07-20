@@ -252,7 +252,11 @@ func TestTabLabels(t *testing.T) {
 // all resolve sensibly relative to the home directory.
 func TestExpandedWorkingDir(t *testing.T) {
 	home := t.TempDir()
+	// os.UserHomeDir reads USERPROFILE on Windows and HOME elsewhere; set both so
+	// the ~ cases resolve to our temp home on every platform. HOME also feeds the
+	// $HOME expansion case below.
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 
 	cases := []struct {
 		in   string
@@ -262,12 +266,17 @@ func TestExpandedWorkingDir(t *testing.T) {
 		{"~", home},
 		{"~/code/x", filepath.Join(home, "code", "x")},
 		{"$HOME/code/y", filepath.Join(home, "code", "y")},
-		{"/srv/abs", "/srv/abs"},
+		{"/srv/abs", filepath.Clean("/srv/abs")},
 	}
 	for _, c := range cases {
-		got := Project{WorkingDir: c.in}.expandedWorkingDir()
-		if got != c.want {
-			t.Fatalf("expandedWorkingDir(%q) = %q, want %q", c.in, got, c.want)
+		got, err := Project{WorkingDir: c.in}.expandedWorkingDir()
+		if err != nil {
+			t.Fatalf("expandedWorkingDir(%q) returned error: %v", c.in, err)
+		}
+		// expandedWorkingDir normalizes separators (filepath.Clean); compare against
+		// a cleaned want so the $VAR case matches on Windows too.
+		if want := filepath.Clean(c.want); got != want {
+			t.Fatalf("expandedWorkingDir(%q) = %q, want %q", c.in, got, want)
 		}
 	}
 }

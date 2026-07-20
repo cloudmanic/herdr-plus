@@ -7,6 +7,7 @@
 package main
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -346,7 +347,9 @@ func TestProjectsModelBrowserView(t *testing.T) {
 	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
 	view := m.View()
 
-	for _, want := range []string{"Alpha", "Bravo", "/srv/alpha"} {
+	// The detail bar shows the resolved working dir, which expandedWorkingDir
+	// normalizes to native separators (\srv\alpha on Windows).
+	for _, want := range []string{"Alpha", "Bravo", filepath.Clean("/srv/alpha")} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("browser view missing %q:\n%s", want, view)
 		}

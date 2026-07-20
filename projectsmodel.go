@@ -402,7 +402,7 @@ func (m projectsModel) branchView(w, h int) string {
 	name, dir := "", ""
 	if m.chosen != nil {
 		name = m.chosen.Name
-		dir = m.chosen.expandedWorkingDir()
+		dir = m.chosen.displayWorkingDir()
 	}
 
 	body := nameStyle.Render(name) + "\n" +
@@ -440,7 +440,7 @@ func (m projectsModel) detailBar(w int) string {
 		inner = 10
 	}
 
-	dirLine := dirIconStyle.Render("📁 ") + pathStyle.Render(truncate(p.expandedWorkingDir(), inner-3))
+	dirLine := dirIconStyle.Render("📁 ") + pathStyle.Render(truncate(p.displayWorkingDir(), inner-3))
 
 	labels := p.tabLabels()
 	styled := make([]string, len(labels))
