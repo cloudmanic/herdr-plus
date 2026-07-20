@@ -11,17 +11,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"strings"
 	"time"
 )
 
-// herdrClient talks to the running herdr instance over its unix domain socket.
-// The protocol is newline-delimited JSON: one request object per line, one
-// response object per line. Each call opens a short-lived connection, writes a
-// single request, and reads a single response. herdr injects HERDR_SOCKET_PATH
-// into every plugin command, so this works whenever herdr runs us.
+// herdrClient talks to the running herdr instance over its local IPC endpoint:
+// a unix domain socket on macOS/Linux and a named pipe on Windows (dialHerdr
+// hides the difference). The protocol is newline-delimited JSON: one request
+// object per line, one response object per line. Each call opens a short-lived
+// connection, writes a single request, and reads a single response. herdr
+// injects HERDR_SOCKET_PATH into every plugin command, so this works whenever
+// herdr runs us.
 type herdrClient struct {
 	socketPath string
 }
@@ -60,7 +61,7 @@ type response struct {
 // call sends a single request over a fresh connection and decodes the result
 // into out (which may be nil when the caller does not care about the payload).
 func (c *herdrClient) call(method string, params map[string]any, out any) error {
-	conn, err := net.Dial("unix", c.socketPath)
+	conn, err := dialHerdr(c.socketPath)
 	if err != nil {
 		return fmt.Errorf("connect herdr socket: %w", err)
 	}
