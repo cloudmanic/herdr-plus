@@ -63,7 +63,7 @@ type response struct {
 func (c *herdrClient) call(method string, params map[string]any, out any) error {
 	conn, err := dialHerdr(c.socketPath)
 	if err != nil {
-		return fmt.Errorf("connect herdr socket: %w", err)
+		return fmt.Errorf("connect herdr IPC endpoint: %w", err)
 	}
 	defer conn.Close()
 
