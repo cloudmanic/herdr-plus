@@ -45,25 +45,25 @@ var (
 	// detailBoxStyle frames the bottom bar that previews the highlighted project.
 	detailBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#A78BFA")).
+			BorderForeground(lipgloss.Color("5")).
 			Padding(0, 1)
 
 	// dirIconStyle / pathStyle render the "📁 <working dir>" line of the detail bar.
-	dirIconStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#A78BFA"))
-	pathStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#E5E7EB"))
-	tabNameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#C4B5FD"))
-	dotStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#4B5563"))
+	dirIconStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+	pathStyle    = lipgloss.NewStyle()
+	tabNameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
+	dotStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 
 	// Empty-state styles: a centered onboarding card.
 	cardStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#A78BFA")).
+			BorderForeground(lipgloss.Color("5")).
 			Padding(1, 3)
-	cardTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#A78BFA")).Bold(true)
-	bodyStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#E5E7EB"))
-	pathHintStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#F2A900")).Bold(true)
-	codeStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
-	linkStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#67E8F9")).Underline(true)
+	cardTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Bold(true)
+	bodyStyle      = lipgloss.NewStyle()
+	pathHintStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)
+	codeStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	linkStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Underline(true)
 )
 
 // projectsModel is the full-screen projects browser. It is a thin shell around
