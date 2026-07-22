@@ -25,6 +25,13 @@ and **falls back to downloading the latest prebuilt release binary**, so it work
 `herdr plugin action list --plugin cloudmanic.herdr-plus`, and
 `herdr plugin uninstall cloudmanic.herdr-plus`.
 
+> **Windows** (herdr's Windows support is in preview): the plugin installs and
+> runs on Windows, but its build step compiles straight from source with the Go
+> toolchain — there's **no prebuilt-binary fallback** like the Linux/macOS `sh`
+> script has — so **Go must be on your `PATH`** to `herdr plugin install`. The
+> plugin talks to herdr over a named pipe there instead of a unix socket; it's
+> validated against the herdr Windows beta.
+
 **Local development:** build the binary and link your checkout in place:
 
 ```bash
