@@ -32,7 +32,7 @@ func launchProjects() {
 
 	cmd := exec.Command(herdr, "plugin", "pane", "open",
 		"--plugin", "cloudmanic.herdr-plus",
-		"--entrypoint", "picker",
+		"--entrypoint", paneEntrypoint("picker"),
 		"--placement", "zoomed",
 	)
 	cmd.Stdout = os.Stdout
@@ -97,7 +97,10 @@ func runProjectsUI() {
 // the user to it; the picker pane this was launched from is then torn down by
 // herdr when runProjectsUI exits.
 func openProject(client *herdrClient, p Project) error {
-	dir := p.expandedWorkingDir()
+	dir, err := p.expandedWorkingDir()
+	if err != nil {
+		return err
+	}
 	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 		return fmt.Errorf("working directory does not exist: %s", dir)
 	}
@@ -122,7 +125,11 @@ func openProject(client *herdrClient, p Project) error {
 func openProjectAsWorktree(client *herdrClient, p Project, branch string) error {
 	// filepath.Abs already returns an absolute path (or an error), so no separate
 	// IsAbs check is needed after it.
-	dir, err := filepath.Abs(p.expandedWorkingDir())
+	expanded, err := p.expandedWorkingDir()
+	if err != nil {
+		return fmt.Errorf("resolve working directory: %w", err)
+	}
+	dir, err := filepath.Abs(expanded)
 	if err != nil {
 		return fmt.Errorf("resolve working directory: %w", err)
 	}

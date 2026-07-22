@@ -10,10 +10,17 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"text/template"
 )
+
+// templateFuncs are the helper functions available inside a quick action's
+// command template, on top of text/template's builtins (e.g. urlquery). opener
+// expands to the platform's default open command so a single action works on
+// every OS — see opener in shell.go.
+func templateFuncs() template.FuncMap {
+	return template.FuncMap{"opener": opener}
+}
 
 // Action types. An action's Type decides what happens between selecting it in
 // the picker and running its command.
@@ -147,7 +154,7 @@ func (a Action) validate() error {
 // position the value precisely with {{.Value}} or just receive it as its last
 // argument.
 func (a Action) render(ctx RunContext) (string, error) {
-	tmpl, err := template.New(a.Name).Parse(a.Command)
+	tmpl, err := template.New(a.Name).Funcs(templateFuncs()).Parse(a.Command)
 	if err != nil {
 		return "", fmt.Errorf("parse command for %q: %w", a.Name, err)
 	}
@@ -166,15 +173,16 @@ func (a Action) render(ctx RunContext) (string, error) {
 
 // run renders and executes the action's command through the shell, in the
 // invoking pane's working directory and with the context exported as
-// HERDR_PLUS_* environment variables. Running through "sh -c" lets commands use
-// pipes, arguments, and full scripts.
+// HERDR_PLUS_* environment variables. Running through a shell (see
+// shellCommand: `sh -c`, or PowerShell on Windows) lets commands use pipes,
+// arguments, and full scripts.
 func (a Action) run(ctx RunContext) error {
 	cmdline, err := a.render(ctx)
 	if err != nil {
 		return err
 	}
 
-	cmd := exec.Command("sh", "-c", cmdline)
+	cmd := shellCommand(cmdline)
 	if ctx.WorkDir != "" {
 		cmd.Dir = ctx.WorkDir
 	}

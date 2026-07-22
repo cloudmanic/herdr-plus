@@ -217,17 +217,40 @@ func validateTabs(label, source string, tabs []ProjectTab) error {
 // path, expanding a leading ~ to the home directory and any $VARS in the path.
 // An empty working_dir defaults to the user's home directory, so a minimal
 // project still opens somewhere sensible.
-func (p Project) expandedWorkingDir() string {
+//
+// Home comes from os.UserHomeDir (USERPROFILE on Windows, HOME elsewhere), and
+// the result is filepath.Clean'd so a config written with forward slashes lands
+// on native separators — both so this works on Windows. Only $VAR / ${VAR}
+// syntax is expanded (os.ExpandEnv), not Windows %VAR%; document that for users.
+func (p Project) expandedWorkingDir() (string, error) {
 	dir := strings.TrimSpace(p.WorkingDir)
-	home, _ := os.UserHomeDir()
+
+	home, err := os.UserHomeDir()
+	needsHome := dir == "" || dir == "~" || strings.HasPrefix(dir, "~/")
+	if err != nil && needsHome {
+		// Only a fatal problem when the path actually references home; an absolute
+		// or relative working_dir resolves fine without it.
+		return "", fmt.Errorf("resolve home directory for working_dir %q: %w", p.WorkingDir, err)
+	}
 
 	if dir == "" || dir == "~" {
-		return home
+		return home, nil
 	}
 	if strings.HasPrefix(dir, "~/") {
 		dir = filepath.Join(home, dir[2:])
 	}
-	return os.ExpandEnv(dir)
+	return filepath.Clean(os.ExpandEnv(dir)), nil
+}
+
+// displayWorkingDir resolves the working directory for UI contexts that have no
+// way to surface an error (the picker's detail bar). On failure it falls back to
+// the raw working_dir so the picker still renders something rather than breaking.
+func (p Project) displayWorkingDir() string {
+	dir, err := p.expandedWorkingDir()
+	if err != nil {
+		return strings.TrimSpace(p.WorkingDir)
+	}
+	return dir
 }
 
 // tabLabels returns the tab names in order for the browser's detail bar,

@@ -17,6 +17,8 @@
 # HERDR_PLUS_WORKDIR, HERDR_PLUS_SESSION_TITLE, and so on.
 
 name = "Reveal Working Dir"
-description = "Open the launch directory in Finder"
+description = "Open the launch directory in your file manager"
 type = "command"
-command = "open {{.WorkDir}}"
+# {{opener}} is your OS's open command; single-quoting {{.WorkDir}} keeps a path
+# with spaces intact on every shell.
+command = "{{opener}} '{{.WorkDir}}'"

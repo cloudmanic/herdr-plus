@@ -35,16 +35,18 @@ func TestActionRender(t *testing.T) {
 			want:   "open https://github.com/cloudmanic/herdr-plus",
 		},
 		{
+			// The value is appended and quoted for the current platform's shell;
+			// build the expected string with shellQuote so it holds on Windows too.
 			name:   "value appended when template omits it",
 			action: Action{Name: "Say", Type: TypeForm, Command: "say"},
 			ctx:    RunContext{Value: "hi there"},
-			want:   "say 'hi there'",
+			want:   "say " + shellQuote("hi there"),
 		},
 		{
 			name:   "value with single quote is shell-safe when appended",
 			action: Action{Name: "Say", Type: TypeForm, Command: "say"},
 			ctx:    RunContext{Value: "it's me"},
-			want:   `say 'it'\''s me'`,
+			want:   "say " + shellQuote("it's me"),
 		},
 		{
 			name:   "workdir variable",
@@ -63,6 +65,14 @@ func TestActionRender(t *testing.T) {
 			action:  Action{Name: "Search", Type: TypeForm, Command: "open 'https://g.co/s?q={{.Value | urlquery}}'"},
 			ctx:     RunContext{Value: "hello world"},
 			wantSub: []string{"hello", "world"},
+		},
+		{
+			// {{opener}} renders to the host's open command (open/xdg-open/
+			// Start-Process); assert against opener() so it holds on every OS.
+			name:   "opener helper renders host open command",
+			action: Action{Name: "Open", Command: "{{opener}} https://github.com"},
+			ctx:    RunContext{},
+			want:   opener() + " https://github.com",
 		},
 	}
 
@@ -128,12 +138,5 @@ func TestOptionResolvedValue(t *testing.T) {
 	}
 }
 
-// TestShellQuote verifies single-quote escaping produces a single shell token.
-func TestShellQuote(t *testing.T) {
-	if got := shellQuote("plain"); got != "'plain'" {
-		t.Fatalf("shellQuote(plain) = %q", got)
-	}
-	if got := shellQuote("it's"); got != `'it'\''s'` {
-		t.Fatalf("shellQuote(it's) = %q", got)
-	}
-}
+// Shell quoting is OS-specific and lives in shell_test.go (posixQuote /
+// powershellQuote are tested directly there, on every platform).

@@ -3,4 +3,4 @@
 name = "Google"
 description = "Open https://google.com"
 type = "command"
-command = "open https://google.com"
+command = "{{opener}} https://google.com"
