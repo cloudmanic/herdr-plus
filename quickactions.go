@@ -34,7 +34,7 @@ func launchQuickActions() {
 
 	args := []string{
 		"plugin", "pane", "open",
-		"--plugin", "cloudmanic.herdr-plus",
+		"--plugin", pluginID,
 		"--entrypoint", paneEntrypoint("quick-actions-picker"),
 		"--placement", "overlay",
 		// Hand the launch context to the picker as a single shell-safe env var.

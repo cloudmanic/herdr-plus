@@ -119,6 +119,27 @@ name = "terminal"   # no command — just an empty shell
 Tabs open in file order. The first tab reuses the workspace's root tab; the rest
 are created behind it. A tab with no `command` is just an empty shell.
 
+### Opening by name (headless)
+
+The picker is interactive, but a project can also be opened directly — no browser,
+no fuzzy-picking — with the `open` subcommand:
+
+```sh
+herdr-plus open harbor-sysadmin
+```
+
+It loads the same templates, resolves the one whose `name` matches (exactly, or
+case-insensitively as a fallback), and builds its workspace through the **identical
+code path** the picker uses — so there is a single source of truth for the layout.
+A mistyped name fails with the list of available projects.
+
+Run it from **inside herdr** (a pane shell, a keybinding, another tool): like every
+herdr-plus command it reaches the running herdr over its socket, and it asks herdr
+where your project templates live, so it finds the same ones the picker shows. This
+is the scriptable entry point for spinning up a known workspace in one shot — handy
+for shell aliases, scripts, and AI agents. (To get `herdr-plus` on your `PATH`, see
+[Just the binary](#just-the-binary).)
+
 ### Grouping
 
 A project may set an optional `group` to cluster related projects under a heading

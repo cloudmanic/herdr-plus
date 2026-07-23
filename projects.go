@@ -31,7 +31,7 @@ func launchProjects() {
 	}
 
 	cmd := exec.Command(herdr, "plugin", "pane", "open",
-		"--plugin", "cloudmanic.herdr-plus",
+		"--plugin", pluginID,
 		"--entrypoint", paneEntrypoint("picker"),
 		"--placement", "zoomed",
 	)
