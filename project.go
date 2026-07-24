@@ -213,24 +213,47 @@ func validateTabs(label, source string, tabs []ProjectTab) error {
 	return nil
 }
 
+// promptDirSentinel is the working_dir value that makes a project ask for its
+// directory when opened instead of pinning one in the TOML. One such project is
+// a universal template: pick it, type a path, and any repo opens with the
+// project's tabs.
+const promptDirSentinel = "{prompt}"
+
+// promptsForDir reports whether this project asks for its working directory at
+// open time (working_dir = "{prompt}").
+func (p Project) promptsForDir() bool {
+	return strings.TrimSpace(p.WorkingDir) == promptDirSentinel
+}
+
 // expandedWorkingDir resolves the project's working directory to an absolute
 // path, expanding a leading ~ to the home directory and any $VARS in the path.
 // An empty working_dir defaults to the user's home directory, so a minimal
 // project still opens somewhere sensible.
+func (p Project) expandedWorkingDir() (string, error) {
+	dir, err := expandPath(p.WorkingDir)
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory for working_dir %q: %w", p.WorkingDir, err)
+	}
+	return dir, nil
+}
+
+// expandPath resolves a user-authored path the way working_dir is resolved: a
+// leading ~ becomes the home directory, $VAR / ${VAR} expand (not Windows
+// %VAR%), and an empty value defaults to home. Shared with the picker's path
+// prompt so a typed path and a configured one behave identically.
 //
 // Home comes from os.UserHomeDir (USERPROFILE on Windows, HOME elsewhere), and
-// the result is filepath.Clean'd so a config written with forward slashes lands
-// on native separators — both so this works on Windows. Only $VAR / ${VAR}
-// syntax is expanded (os.ExpandEnv), not Windows %VAR%; document that for users.
-func (p Project) expandedWorkingDir() (string, error) {
-	dir := strings.TrimSpace(p.WorkingDir)
+// the result is filepath.Clean'd so a path written with forward slashes lands
+// on native separators — both so this works on Windows.
+func expandPath(s string) (string, error) {
+	dir := strings.TrimSpace(s)
 
 	home, err := os.UserHomeDir()
 	needsHome := dir == "" || dir == "~" || strings.HasPrefix(dir, "~/")
 	if err != nil && needsHome {
 		// Only a fatal problem when the path actually references home; an absolute
-		// or relative working_dir resolves fine without it.
-		return "", fmt.Errorf("resolve home directory for working_dir %q: %w", p.WorkingDir, err)
+		// or relative path resolves fine without it.
+		return "", err
 	}
 
 	if dir == "" || dir == "~" {

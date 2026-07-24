@@ -301,6 +301,118 @@ func TestProjectsModelBranchEscReturnsToList(t *testing.T) {
 	}
 }
 
+// promptProjects returns a single directory-prompting project (working_dir =
+// "{prompt}"), the shape of a generic any-repo template.
+func promptProjects() []Project {
+	return []Project{{
+		Name:       "project",
+		WorkingDir: "{prompt}",
+		Tabs:       []ProjectTab{{Name: "claude", Command: "claude"}, {Name: "terminal"}},
+	}}
+}
+
+// TestProjectsModelPromptDirEnterAsksForPath confirms activating a "{prompt}"
+// project opens the path prompt instead of quitting straight to a workspace.
+func TestProjectsModelPromptDirEnterAsksForPath(t *testing.T) {
+	m := newProjectsModel(promptProjects(), "/cfg/projects", "")
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+
+	if m.mode != modePath {
+		t.Fatalf("mode = %v, want modePath", m.mode)
+	}
+	if m.chosen == nil || m.chosen.Name != "project" {
+		t.Fatalf("chosen = %v, want project", m.chosen)
+	}
+	if m.pathInput.Value() != "" || !m.pathInput.Focused() {
+		t.Fatal("path input should be empty and focused")
+	}
+}
+
+// TestProjectsModelPromptDirOpensTypedPath confirms entering an existing
+// directory stamps it into the chosen project, renaming it to the directory's
+// basename so the workspace label says what it holds.
+func TestProjectsModelPromptDirOpensTypedPath(t *testing.T) {
+	dir := t.TempDir()
+	m := newProjectsModel(promptProjects(), "/cfg/projects", "")
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(dir)})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+
+	if m.chosen == nil || m.chosen.WorkingDir != dir {
+		t.Fatalf("chosen working dir = %v, want %q", m.chosen, dir)
+	}
+	if m.chosen.Name != filepath.Base(dir) {
+		t.Fatalf("chosen name = %q, want %q", m.chosen.Name, filepath.Base(dir))
+	}
+	if m.worktree {
+		t.Fatal("plain enter should not mark worktree")
+	}
+}
+
+// TestProjectsModelPromptDirRejectsBadPath confirms a nonexistent path shows an
+// inline error and keeps the prompt up instead of opening anything.
+func TestProjectsModelPromptDirRejectsBadPath(t *testing.T) {
+	m := newProjectsModel(promptProjects(), "/cfg/projects", "")
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/no/such/dir-for-this-test")})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+
+	if m.mode != modePath {
+		t.Fatalf("mode = %v, want modePath still", m.mode)
+	}
+	if m.pathErr == "" {
+		t.Fatal("expected a validation error")
+	}
+	if m.chosen == nil || m.chosen.WorkingDir != "{prompt}" {
+		t.Fatalf("chosen = %v, want untouched sentinel", m.chosen)
+	}
+}
+
+// TestProjectsModelPromptDirCtrlGThenBranch confirms the ctrl+g flow on a
+// "{prompt}" project asks for the path first, then the branch, and ends marked
+// as a worktree of the typed directory.
+func TestProjectsModelPromptDirCtrlGThenBranch(t *testing.T) {
+	dir := t.TempDir()
+	m := newProjectsModel(promptProjects(), "/cfg/projects", "dvic/")
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyCtrlG})
+
+	if m.mode != modePath {
+		t.Fatalf("mode = %v, want modePath first", m.mode)
+	}
+
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(dir)})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+
+	if m.mode != modeBranch {
+		t.Fatalf("mode = %v, want modeBranch after path", m.mode)
+	}
+
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("feature")})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+
+	if !m.worktree || m.branch != "dvic/feature" {
+		t.Fatalf("worktree = %v branch = %q, want true dvic/feature", m.worktree, m.branch)
+	}
+	if m.chosen == nil || m.chosen.WorkingDir != dir {
+		t.Fatalf("chosen working dir = %v, want %q", m.chosen, dir)
+	}
+}
+
+// TestProjectsModelPromptDirEscReturnsToList confirms escape backs out of the
+// path prompt without choosing anything.
+func TestProjectsModelPromptDirEscReturnsToList(t *testing.T) {
+	m := newProjectsModel(promptProjects(), "/cfg/projects", "")
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyEsc})
+
+	if m.mode != modeList {
+		t.Fatalf("mode = %v, want modeList", m.mode)
+	}
+	if m.chosen != nil {
+		t.Fatalf("chosen = %v, want nil", m.chosen)
+	}
+}
+
 // TestProjectsModelCtrlGOnHeadingNoops confirms ctrl+g only opens branch mode
 // when the highlighted row maps to a project.
 func TestProjectsModelCtrlGOnHeadingNoops(t *testing.T) {
