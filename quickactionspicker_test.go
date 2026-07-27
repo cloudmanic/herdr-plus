@@ -133,3 +133,29 @@ func TestPickerMouseWheelMoves(t *testing.T) {
 		t.Fatalf("after wheel down selected ref = %d, want 1 (test)", got)
 	}
 }
+
+// TestPickerVimNavKeys confirms ctrl+j / ctrl+k move the highlight in the action
+// list, matching ctrl+n / ctrl+p. Plain j/k are unavailable: the launcher always
+// filters, so printable runes belong to the query.
+func TestPickerVimNavKeys(t *testing.T) {
+	actions := []Action{
+		{Name: "build", Command: "make build", origin: originGlobal},
+		{Name: "test", Command: "make test", origin: originGlobal},
+	}
+	m := newPickerModel(RunContext{}, actions)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	pm := updated.(pickerModel)
+	if got := pm.actionList.selectedIndex(); got != 1 {
+		t.Fatalf("after ctrl+j selected index = %d, want 1 (test)", got)
+	}
+	if pm.chosen != nil {
+		t.Fatal("ctrl+j should not run an action")
+	}
+
+	updated, _ = pm.Update(tea.KeyMsg{Type: tea.KeyCtrlK})
+	pm = updated.(pickerModel)
+	if got := pm.actionList.selectedIndex(); got != 0 {
+		t.Fatalf("after ctrl+k selected index = %d, want 0 (build)", got)
+	}
+}

@@ -230,10 +230,10 @@ func (m projectsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "esc":
 			m.quitting = true
 			return m, tea.Quit
-		case "up", "ctrl+p":
+		case "up", "ctrl+p", "ctrl+k":
 			m.list.moveUp()
 			return m, nil
-		case "down", "ctrl+n":
+		case "down", "ctrl+n", "ctrl+j":
 			m.list.moveDown()
 			return m, nil
 		case "enter":

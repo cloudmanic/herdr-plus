@@ -13,6 +13,9 @@ Trigger the `cloudmanic.herdr-plus.projects` action — from herdr's action menu
 a [bound key](../keybindings/) — and herdr-plus opens a **full-screen fuzzy
 browser** of your projects.
 
+Move the highlight with `↑`/`↓` (or `ctrl+p`/`ctrl+n`, `ctrl+k`/`ctrl+j`); typing
+filters the list, so plain `j`/`k` go to the query rather than moving.
+
 Fuzzy-find a project, press `enter` (or click it), and herdr-plus spins up a whole
 workspace — every tab created, every split laid out, and every startup command
 running — then drops you straight into it. Cancel with `esc` to close the browser

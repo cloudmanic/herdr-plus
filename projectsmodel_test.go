@@ -377,3 +377,26 @@ func TestProjectsModelEmptyState(t *testing.T) {
 		t.Fatal("empty-state must never choose a project")
 	}
 }
+
+// TestProjectsModelVimNavKeys confirms ctrl+j / ctrl+k walk the highlight the
+// same way ctrl+n / ctrl+p do. Plain j/k cannot be used because the browser is
+// always filtering — every printable rune goes to the query.
+func TestProjectsModelVimNavKeys(t *testing.T) {
+	m := newProjectsModel(sampleProjects(), "/cfg/projects", "")
+	m = step(t, m, tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyCtrlJ})
+	if got := m.list.selectedIndex(); got != 1 {
+		t.Fatalf("after ctrl+j selected index = %d, want 1 (Bravo)", got)
+	}
+
+	m = step(t, m, tea.KeyMsg{Type: tea.KeyCtrlK})
+	if got := m.list.selectedIndex(); got != 0 {
+		t.Fatalf("after ctrl+k selected index = %d, want 0 (Alpha)", got)
+	}
+
+	// The query stays untouched: these are navigation keys, not input.
+	if got := m.list.input.Value(); got != "" {
+		t.Fatalf("ctrl+j/ctrl+k leaked into the query: %q", got)
+	}
+}

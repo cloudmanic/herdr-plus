@@ -13,7 +13,8 @@ Trigger the `cloudmanic.herdr-plus.quick-actions` action — from herdr's action
 menu, or a [bound key](../keybindings/) — and herdr-plus opens a focused launcher
 over your workspace. The launcher is a fuzzy finder over your actions:
 
-- `↑`/`↓` (or `ctrl+p`/`ctrl+n`, or the mouse wheel) move the highlight.
+- `↑`/`↓` (or `ctrl+p`/`ctrl+n`, `ctrl+k`/`ctrl+j`, or the mouse wheel) move the
+  highlight.
 - Type to filter the list.
 - `enter` or a left-click runs the highlighted action.
 - `esc` (or `ctrl+c`) cancels.

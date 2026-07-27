@@ -188,10 +188,10 @@ func (m pickerModel) updateActions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "esc":
 		m.quitting = true
 		return m, tea.Quit
-	case "up", "ctrl+p":
+	case "up", "ctrl+p", "ctrl+k":
 		m.actionList.moveUp()
 		return m, nil
-	case "down", "ctrl+n":
+	case "down", "ctrl+n", "ctrl+j":
 		m.actionList.moveDown()
 		return m, nil
 	case "enter":
@@ -239,10 +239,10 @@ func (m pickerModel) updateSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.current = nil
 		m.stage = stageActions
 		return m, textinput.Blink
-	case "up", "ctrl+p":
+	case "up", "ctrl+p", "ctrl+k":
 		m.optionList.moveUp()
 		return m, nil
-	case "down", "ctrl+n":
+	case "down", "ctrl+n", "ctrl+j":
 		m.optionList.moveDown()
 		return m, nil
 	case "enter":
