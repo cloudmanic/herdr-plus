@@ -389,6 +389,29 @@ func (c *herdrClient) workspaceTargetPane(workspaceID, tabID string) (string, er
 	return "", fmt.Errorf("workspace %s has no panes", workspaceID)
 }
 
+// waitForWorkspaceTargetPane is workspaceTargetPane with a deadline, for callers
+// racing a workspace into existence. herdr emits workspace.created before the
+// workspace's root pane is necessarily visible to pane.list — the ordering
+// differs between the sidebar's New button and an API-driven create — so a
+// handler that looks once sees an empty workspace and gives up. Polling until the
+// root pane appears makes the handler independent of that ordering.
+//
+// It reports the last error on timeout, so a workspace that genuinely never gets
+// a pane still fails with the reason rather than a bare timeout.
+func (c *herdrClient) waitForWorkspaceTargetPane(workspaceID, tabID string, timeout time.Duration) (string, error) {
+	deadline := time.Now().Add(timeout)
+	for {
+		pane, err := c.workspaceTargetPane(workspaceID, tabID)
+		if err == nil {
+			return pane, nil
+		}
+		if time.Now().After(deadline) {
+			return "", err
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
 // paneCandidate is the slice of pane.list that choosing an anchor pane needs.
 type paneCandidate struct {
 	PaneID      string `json:"pane_id"`

@@ -198,6 +198,19 @@ func projectNames(projects []Project) []string {
 // New the user makes a moment later.
 const newWorkspaceInterceptTTL = 15 * time.Second
 
+// newWorkspacePaneTimeout bounds the wait for the new workspace's root pane to
+// become visible to pane.list. herdr emits workspace.created before that pane is
+// necessarily listed — the ordering differs between the sidebar's New button and
+// an API-driven create — and the picker needs a pane to anchor to.
+//
+// It is deliberately generous. Creating a workspace wakes every plugin subscribed
+// to workspace.created at once, and under that burst the pane has been observed
+// taking several seconds to become visible to this handler even though it exists
+// almost immediately. Overshooting costs a handler process sleeping in the
+// background; undershooting means the browser never opens. The ceiling is herdr's
+// own limit on an event command, which cuts one off well before this expires.
+const newWorkspacePaneTimeout = 20 * time.Second
+
 // newWorkspaceInterceptMarker is the marker file's name inside the plugin state
 // directory.
 const newWorkspaceInterceptMarker = "suppress-new-workspace-intercept"
@@ -305,9 +318,16 @@ func runOnWorkspaceEvent(_ []string) {
 	if err != nil {
 		errExit(err)
 	}
-	target, err := client.workspaceTargetPane(ev.WorkspaceID, ev.ActiveTabID)
+	started := time.Now()
+	target, err := client.waitForWorkspaceTargetPane(ev.WorkspaceID, ev.ActiveTabID, newWorkspacePaneTimeout)
 	if err != nil {
 		errExit("could not find a pane in the new workspace:", err)
+	}
+	// Record a non-trivial wait: it is the one part of this handler whose timing
+	// depends on how busy herdr is, so the log should say when it was close to
+	// the limit.
+	if waited := time.Since(started); waited > time.Second {
+		fmt.Printf("herdr-plus: waited %s for the new workspace's root pane.\n", waited.Round(time.Millisecond))
 	}
 
 	if err := openNewWorkspacePicker(ev.WorkspaceID, target); err != nil {
