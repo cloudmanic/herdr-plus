@@ -36,6 +36,9 @@ func TestParseNewWorkspaceEvent(t *testing.T) {
 	if ev.WorkspaceID != "w7" {
 		t.Errorf("WorkspaceID = %q, want %q", ev.WorkspaceID, "w7")
 	}
+	if ev.ActiveTabID != "w7:t1" {
+		t.Errorf("ActiveTabID = %q, want %q", ev.ActiveTabID, "w7:t1")
+	}
 	if ev.Label != "src" {
 		t.Errorf("Label = %q, want %q", ev.Label, "src")
 	}
@@ -232,6 +235,45 @@ func TestNewWorkspaceMode(t *testing.T) {
 		if got != c.want {
 			t.Errorf("newWorkspaceMode(%q) = %q, want %q", c.in, got, c.want)
 		}
+	}
+}
+
+// TestPickTargetPane covers the anchor a zoomed picker pane is opened against.
+// herdr rejects a zoomed plugin pane that names no target pane, so getting this
+// wrong means the picker never appears — the pane list always includes other
+// workspaces' panes, and a new workspace may already hold another plugin's pane.
+func TestPickTargetPane(t *testing.T) {
+	panes := []paneCandidate{
+		{PaneID: "w1:p1", TabID: "w1:t1", WorkspaceID: "w1", Focused: true},
+		{PaneID: "w7:p2", TabID: "w7:t1", WorkspaceID: "w7"},
+		{PaneID: "w7:p3", TabID: "w7:t2", WorkspaceID: "w7", Focused: true},
+	}
+
+	cases := []struct {
+		name        string
+		panes       []paneCandidate
+		workspaceID string
+		tabID       string
+		want        string
+	}{
+		{name: "pane in the named tab wins", panes: panes, workspaceID: "w7", tabID: "w7:t1", want: "w7:p2"},
+		{name: "focused pane when the tab is unknown", panes: panes, workspaceID: "w7", want: "w7:p3"},
+		{name: "unknown tab falls back rather than failing", panes: panes, workspaceID: "w7", tabID: "w7:t9", want: "w7:p3"},
+		{
+			name:        "first pane when none is focused",
+			panes:       []paneCandidate{{PaneID: "w7:p2", TabID: "w7:t1", WorkspaceID: "w7"}},
+			workspaceID: "w7",
+			want:        "w7:p2",
+		},
+		{name: "no panes in the workspace", panes: panes, workspaceID: "w9", want: ""},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := pickTargetPane(c.panes, c.workspaceID, c.tabID); got != c.want {
+				t.Errorf("pickTargetPane = %q, want %q", got, c.want)
+			}
+		})
 	}
 }
 

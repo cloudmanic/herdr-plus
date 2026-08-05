@@ -59,6 +59,10 @@ func (c PluginConfig) newWorkspaceMode() (string, error) {
 // whether it belongs to a git worktree (those are the worktree handler's job).
 type newWorkspaceEvent struct {
 	WorkspaceID string
+	// ActiveTabID is the workspace's only tab at creation time. It is not part of
+	// the intercept decision — it just anchors the picker pane (see
+	// workspaceTargetPane).
+	ActiveTabID string
 	Label       string
 	Focused     bool
 	PaneCount   int
@@ -74,6 +78,7 @@ type workspaceCreatedPayload struct {
 	Data struct {
 		Workspace struct {
 			WorkspaceID string `json:"workspace_id"`
+			ActiveTabID string `json:"active_tab_id"`
 			Label       string `json:"label"`
 			Focused     bool   `json:"focused"`
 			PaneCount   int    `json:"pane_count"`
@@ -102,6 +107,7 @@ func parseNewWorkspaceEvent(eventJSON string, getenv func(string) string) (newWo
 	ws := p.Data.Workspace
 	return newWorkspaceEvent{
 		WorkspaceID: firstNonEmpty(ws.WorkspaceID, getenv("HERDR_WORKSPACE_ID")),
+		ActiveTabID: firstNonEmpty(ws.ActiveTabID, getenv("HERDR_TAB_ID")),
 		Label:       ws.Label,
 		Focused:     ws.Focused,
 		PaneCount:   ws.PaneCount,
@@ -293,20 +299,32 @@ func runOnWorkspaceEvent(_ []string) {
 		return
 	}
 
-	if err := openNewWorkspacePicker(ev.WorkspaceID); err != nil {
+	// The picker pane is anchored to a pane in the new workspace, so we need a
+	// socket connection of our own to find one.
+	client, err := newHerdrClient()
+	if err != nil {
+		errExit(err)
+	}
+	target, err := client.workspaceTargetPane(ev.WorkspaceID, ev.ActiveTabID)
+	if err != nil {
+		errExit("could not find a pane in the new workspace:", err)
+	}
+
+	if err := openNewWorkspacePicker(ev.WorkspaceID, target); err != nil {
 		errExit("could not open the projects browser over the new workspace:", err)
 	}
 	fmt.Printf("herdr-plus: opened the projects browser over new workspace %q.\n", ev.WorkspaceID)
 }
 
 // openNewWorkspacePicker asks herdr to open the new-workspace projects browser as
-// a zoomed pane inside the workspace that was just created. Pinning it with
-// --workspace (rather than relying on which workspace happens to be focused when
-// the pane opens) keeps the picker and the workspace it will replace together,
-// and --env hands the pane that same id so it never has to guess. It shells out
-// to the herdr CLI, like the projects action does, because the event handler runs
-// server-side with no pane of its own.
-func openNewWorkspacePicker(workspaceID string) error {
+// a zoomed pane inside the workspace that was just created. A zoomed plugin pane
+// is positioned relative to an existing pane, not to a workspace, so it is pinned
+// with --target-pane (a pane in the new workspace) rather than left to land
+// wherever focus happens to be; --env hands the pane the workspace id it will
+// replace so it never has to guess. It shells out to the herdr CLI, like the
+// projects action does, because the event handler runs server-side with no pane of
+// its own.
+func openNewWorkspacePicker(workspaceID, targetPaneID string) error {
 	// HERDR_BIN_PATH points at the running herdr binary; it is the portable way to
 	// call back into the CLI from a plugin command.
 	herdr := os.Getenv("HERDR_BIN_PATH")
@@ -318,7 +336,7 @@ func openNewWorkspacePicker(workspaceID string) error {
 		"--plugin", pluginID,
 		"--entrypoint", paneEntrypoint("new-workspace-picker"),
 		"--placement", "zoomed",
-		"--workspace", workspaceID,
+		"--target-pane", targetPaneID,
 		"--focus",
 		"--env", newWorkspaceTargetEnv+"="+workspaceID,
 	)

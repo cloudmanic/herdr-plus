@@ -365,6 +365,60 @@ func (c *herdrClient) workspacePaneCount(workspaceID string) (int, error) {
 	return n, nil
 }
 
+// workspaceTargetPane returns the pane a new pane should be anchored to when
+// opening one into a workspace we are not running inside. herdr's zoomed and
+// split plugin panes are positioned relative to an existing pane rather than to a
+// workspace, so the new-workspace picker has to name one.
+//
+// Preference order within the workspace: the pane in the given tab (when the
+// caller knows which tab, e.g. from a workspace.created payload), then the
+// focused one — a freshly created workspace focuses its root pane — then whatever
+// herdr listed first. The tab filter is dropped rather than obeyed to the point of
+// returning nothing, so an unexpected tab id degrades to "some pane in the right
+// workspace" instead of an error.
+func (c *herdrClient) workspaceTargetPane(workspaceID, tabID string) (string, error) {
+	var out struct {
+		Panes []paneCandidate `json:"panes"`
+	}
+	if err := c.call("pane.list", map[string]any{}, &out); err != nil {
+		return "", err
+	}
+	if pane := pickTargetPane(out.Panes, workspaceID, tabID); pane != "" {
+		return pane, nil
+	}
+	return "", fmt.Errorf("workspace %s has no panes", workspaceID)
+}
+
+// paneCandidate is the slice of pane.list that choosing an anchor pane needs.
+type paneCandidate struct {
+	PaneID      string `json:"pane_id"`
+	TabID       string `json:"tab_id"`
+	WorkspaceID string `json:"workspace_id"`
+	Focused     bool   `json:"focused"`
+}
+
+// pickTargetPane applies workspaceTargetPane's preference order to a pane list,
+// returning "" when the workspace has no panes at all. It is split out from the
+// socket call so the choice itself is testable.
+func pickTargetPane(panes []paneCandidate, workspaceID, tabID string) string {
+	first, inTab, focused := "", "", ""
+	for _, p := range panes {
+		if p.WorkspaceID != workspaceID {
+			continue
+		}
+		if first == "" {
+			first = p.PaneID
+		}
+		if p.Focused && focused == "" {
+			focused = p.PaneID
+		}
+		if tabID != "" && p.TabID == tabID && inTab == "" {
+			inTab = p.PaneID
+		}
+	}
+	return firstNonEmpty(inTab, focused, first)
+}
+
 // paneGet fetches metadata for a single pane, including its working directory
 // and the tab/workspace it belongs to.
 func (c *herdrClient) paneGet(paneID string) (paneInfo, error) {
