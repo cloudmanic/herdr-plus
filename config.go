@@ -63,6 +63,15 @@ type PluginConfig struct {
 		// overlay.
 		Placement string `toml:"placement"`
 	} `toml:"quick_actions"`
+
+	NewWorkspace struct {
+		// Mode decides what happens when herdr creates a new, empty workspace —
+		// the sidebar's New button or the new_workspace keybinding. "off" (the
+		// default) leaves herdr alone; "picker" opens the projects browser over
+		// the new workspace and replaces it with the chosen project. See
+		// newWorkspaceMode for the validated values.
+		Mode string `toml:"mode"`
+	} `toml:"new_workspace"`
 }
 
 // resolvePlacement returns configured if it is a valid herdr pane placement,

@@ -29,6 +29,11 @@ import (
 //   - "on-worktree" is herdr's worktree event handler, run for both worktree.created
 //     and worktree.opened (via the [[events]] entries in herdr-plugin.toml), not the
 //     user.
+//   - "on-workspace" is herdr's workspace.created event handler: with
+//     `[new_workspace] mode = "picker"` it opens the projects browser over a new,
+//     empty workspace. Also run by herdr, never by hand.
+//   - "new-workspace-ui" is that browser; herdr runs it inside the pane the handler
+//     opens (the `new-workspace-picker` entrypoint).
 //
 // The bare binary has no launcher of its own, so it just prints usage.
 func main() {
@@ -54,6 +59,12 @@ func main() {
 			return
 		case "on-worktree":
 			runOnWorktreeEvent(os.Args[2:])
+			return
+		case "on-workspace":
+			runOnWorkspaceEvent(os.Args[2:])
+			return
+		case "new-workspace-ui":
+			runNewWorkspaceUI()
 			return
 		case "version", "--version", "-v", "-V":
 			fmt.Println("herdr-plus", version.Version)

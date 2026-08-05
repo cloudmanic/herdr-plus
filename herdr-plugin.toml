@@ -95,6 +95,26 @@ platforms = ["windows"]
 # an interactive bubbletea TUI, and -NonInteractive would break its input.
 command = ["powershell", "-NoProfile", "-Command", "& .\\bin\\herdr-plus.exe projects-ui"]
 
+# new-workspace-picker — the projects browser shown over a brand-new, empty
+# workspace, opened by the workspace.created handler below (never by a keybinding).
+# It is a separate entrypoint from `picker` because it does more: choosing a
+# project here also closes the empty workspace it replaces. Cancelling keeps that
+# workspace, so herdr's plain New behaviour is always one esc away.
+[[panes]]
+id = "new-workspace-picker"
+title = "Herdr Plus: New workspace"
+placement = "zoomed"
+platforms = ["linux", "macos"]
+command = ["./bin/herdr-plus", "new-workspace-ui"]
+
+[[panes]]
+id = "new-workspace-picker-windows"
+title = "Herdr Plus: New workspace"
+placement = "zoomed"
+platforms = ["windows"]
+# Omits -NonInteractive on purpose — interactive TUI pane; see picker-windows.
+command = ["powershell", "-NoProfile", "-Command", "& .\\bin\\herdr-plus.exe new-workspace-ui"]
+
 # quick-actions — a fuzzy launcher for one-off actions/scripts (command, select,
 # or form), loaded from ~/.config/herdr-plus/quick-actions/ (plus a repo's own
 # .herdr-plus/quick-actions/). Commands template against and run in the directory
@@ -173,3 +193,23 @@ command = ["./bin/herdr-plus", "on-worktree"]
 on = "worktree.opened"
 platforms = ["windows"]
 command = ["powershell", "-NoProfile", "-NonInteractive", "-Command", "& .\\bin\\herdr-plus.exe on-worktree"]
+
+# workspace.created — herdr fires this for every new workspace, including the
+# empty one its sidebar's New button (and the new_workspace keybinding) creates in
+# the current directory. herdr exposes no hook on that button itself, so this is
+# how herdr-plus offers your projects there: with `[new_workspace] mode = "picker"`
+# in config.toml the handler opens the projects browser over the new workspace and
+# swaps it for the project you choose; esc keeps the empty workspace. Without that
+# setting the handler returns immediately and logs nothing. It also stands down for
+# worktree workspaces, background workspaces, workspaces that already have tabs,
+# and the workspaces herdr-plus creates itself. herdr runs this for you — never
+# invoke it by hand. Output is captured in the plugin log.
+[[events]]
+on = "workspace.created"
+platforms = ["linux", "macos"]
+command = ["./bin/herdr-plus", "on-workspace"]
+
+[[events]]
+on = "workspace.created"
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-NonInteractive", "-Command", "& .\\bin\\herdr-plus.exe on-workspace"]
