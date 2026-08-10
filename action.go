@@ -193,9 +193,13 @@ func (a Action) render(ctx RunContext) (string, error) {
 // resolveOptions returns the option list a select action should show: the
 // static Options list, or — when OptionsCommand is set — the result of running
 // that command fresh through the shell right now and turning each non-blank
-// line of its stdout into an Option (label and value both the line). This is
-// what makes a select action's list reflect live state (e.g. a directory
-// listing) instead of a snapshot frozen into the TOML file.
+// line of its stdout into an Option. A line is just "value" (used as both
+// label and value) unless it contains a tab, in which case it is
+// "value\tdescription" — the same label/value/description split a static
+// [[options]] entry has, so a dynamic list can flag things about each choice
+// (e.g. "already added") without that text ending up in the value the command
+// receives. This is what makes a select action's list reflect live state (e.g.
+// a directory listing) instead of a snapshot frozen into the TOML file.
 func (a Action) resolveOptions(ctx RunContext) ([]Option, error) {
 	if strings.TrimSpace(a.OptionsCommand) == "" {
 		return a.Options, nil
@@ -222,7 +226,12 @@ func (a Action) resolveOptions(ctx RunContext) ([]Option, error) {
 		if line == "" {
 			continue
 		}
-		options = append(options, Option{Label: line, Value: line})
+		value, desc, hasDesc := strings.Cut(line, "\t")
+		opt := Option{Label: value, Value: value}
+		if hasDesc {
+			opt.Description = strings.TrimSpace(desc)
+		}
+		options = append(options, opt)
 	}
 	return options, nil
 }

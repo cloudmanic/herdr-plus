@@ -176,6 +176,23 @@ func TestActionResolveOptions(t *testing.T) {
 		}
 	})
 
+	t.Run("options_command line with a tab splits into value and description", func(t *testing.T) {
+		a := Action{Name: "A", Type: TypeSelect, OptionsCommand: `printf 'plain\nnvim-ide\t(already added)\n'`}
+		got, err := a.resolveOptions(RunContext{})
+		if err != nil {
+			t.Fatalf("resolveOptions: %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("resolveOptions = %+v, want 2 options", got)
+		}
+		if got[0].Label != "plain" || got[0].Value != "plain" || got[0].Description != "" {
+			t.Fatalf("option 0 = %+v, want plain with no description", got[0])
+		}
+		if got[1].Label != "nvim-ide" || got[1].Value != "nvim-ide" || got[1].Description != "(already added)" {
+			t.Fatalf("option 1 = %+v, want label/value %q and description %q", got[1], "nvim-ide", "(already added)")
+		}
+	})
+
 	t.Run("options_command is template rendered", func(t *testing.T) {
 		// SessionTitle (not WorkDir) so the test doesn't also depend on cmd.Dir
 		// pointing at a directory that exists on disk.
