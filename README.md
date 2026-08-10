@@ -76,7 +76,20 @@ Optional global settings live in `config.toml` in that same directory:
 ```toml
 [worktree]
 branch_prefix = "your-name/" # used verbatim; include your own trailing /
+
+[projects]
+placement = "zoomed" # overlay, popup, split, tab, or zoomed; default is zoomed
+
+[quick_actions]
+placement = "overlay" # overlay, popup, split, tab, or zoomed; default is overlay
 ```
+
+`placement` controls how herdr opens each picker — see herdr's
+[`plugin pane open --placement`](https://herdr.dev/docs/plugins/#panes) for what
+each value does. `popup` is a good fit for either picker if you want a small
+floating window that leaves your tiled layout untouched, rather than the default
+zoomed/overlay takeover. An empty or invalid value falls back to the built-in
+default and prints a warning to stderr rather than being passed through to herdr.
 
 ## Projects
 
