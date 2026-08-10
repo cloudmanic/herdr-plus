@@ -51,6 +51,12 @@ type pickerModel struct {
 	optionList fuzzyList
 	formInput  textinput.Model
 
+	// resolvedOptions is the option list actually shown for the current select
+	// action — a.Options for a static list, or the freshly-run OptionsCommand
+	// output for a dynamic one. activateOption indexes into this, not into
+	// current.Options, since those two only coincide in the static case.
+	resolvedOptions []Option
+
 	width  int
 	height int
 
@@ -214,7 +220,14 @@ func (m pickerModel) activateAction() (tea.Model, tea.Cmd) {
 	switch a.effectiveType() {
 	case TypeSelect:
 		m.current = &a
-		m.optionList = newFuzzyList("Pick an option…", optionItems(a.Options))
+		options, err := a.resolveOptions(m.ctx)
+		if err != nil {
+			m.resolvedOptions = nil
+			m.optionList = newFuzzyList("Pick an option…", []listItem{{name: "error: " + err.Error()}})
+		} else {
+			m.resolvedOptions = options
+			m.optionList = newFuzzyList("Pick an option…", optionItems(options))
+		}
 		m.stage = stageSelect
 		return m, textinput.Blink
 	case TypeForm:
@@ -237,6 +250,7 @@ func (m pickerModel) updateSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "esc":
 		m.current = nil
+		m.resolvedOptions = nil
 		m.stage = stageActions
 		return m, textinput.Blink
 	case "up", "ctrl+p":
@@ -261,7 +275,7 @@ func (m pickerModel) activateOption() (tea.Model, tea.Cmd) {
 	if idx < 0 {
 		return m, nil
 	}
-	m.value = m.current.Options[idx].resolvedValue()
+	m.value = m.resolvedOptions[idx].resolvedValue()
 	m.chosen = m.current
 	return m, tea.Quit
 }
