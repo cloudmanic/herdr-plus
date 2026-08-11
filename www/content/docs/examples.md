@@ -233,6 +233,7 @@ command = "make api"
 [[tabs.panes]]
 command = "make web"
 split = "right"   # beside the first pane, not below
+ratio = 0.35      # and narrower than it — `make api` keeps 65%
 
 [[tabs]]
 name = "shell"   # an empty terminal to poke around in

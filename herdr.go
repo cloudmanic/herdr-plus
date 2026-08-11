@@ -110,21 +110,33 @@ func (c *herdrClient) worktreeCreate(cwd, branch string, focus bool) error {
 	return c.call("worktree.create", worktreeCreateParams(cwd, branch, focus), nil)
 }
 
+// paneSplitParams builds the pane.split payload. A zero ratio is omitted so herdr
+// applies its own even split; any other value is the share of the space the target
+// pane keeps.
+func paneSplitParams(targetPaneID, direction string, ratio float64, focus bool) map[string]any {
+	params := map[string]any{
+		"target_pane_id": targetPaneID,
+		"direction":      direction,
+		"focus":          focus,
+	}
+	if ratio > 0 {
+		params["ratio"] = ratio
+	}
+	return params
+}
+
 // paneSplit splits the target pane in the given direction ("down" for a new pane
 // beneath it, "right" for one beside it), creating a new pane, and returns the
-// new pane's id. When focus is true the new pane becomes the focused pane (the
+// new pane's id. ratio is the share of the space the target pane keeps, zero for
+// an even split. When focus is true the new pane becomes the focused pane (the
 // socket API does not focus new panes by default).
-func (c *herdrClient) paneSplit(targetPaneID, direction string, focus bool) (string, error) {
+func (c *herdrClient) paneSplit(targetPaneID, direction string, ratio float64, focus bool) (string, error) {
 	var out struct {
 		Pane struct {
 			PaneID string `json:"pane_id"`
 		} `json:"pane"`
 	}
-	err := c.call("pane.split", map[string]any{
-		"target_pane_id": targetPaneID,
-		"direction":      direction,
-		"focus":          focus,
-	}, &out)
+	err := c.call("pane.split", paneSplitParams(targetPaneID, direction, ratio, focus), &out)
 	if err != nil {
 		return "", err
 	}

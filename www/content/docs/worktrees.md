@@ -91,8 +91,9 @@ command = "./scripts/release.sh"
 
 The `[[tabs]]` format is identical to a project's. A tab can run a single
 `command`, or hold up to four panes via `[[tabs.panes]]` with `split = "down"` or
-`"right"`. See [Split panes within a tab](../projects/#split-panes-within-a-tab)
-for the full vocabulary.
+`"right"` and an optional `ratio`. See
+[Split panes within a tab](../projects/#split-panes-within-a-tab) for the full
+vocabulary.
 
 ## When nothing matches
 

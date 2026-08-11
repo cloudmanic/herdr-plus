@@ -26,6 +26,7 @@ command = "spiceedit"
 # A tab can be split into up to 4 panes. Instead of a single `command`, give it
 # [[tabs.panes]]. Each pane after the first sets `split = "down"` (stacked) or
 # "right" (side by side) — how it splits off the previous pane (default "down").
+# Add `ratio` for how much of that split the pane takes (default: an even split).
 [[tabs]]
 name = "server"
 
@@ -37,6 +38,7 @@ command = "php artisan serve"
 label = "Assets"
 command = "npm run dev"
 split = "down"
+ratio = 0.3   # the assets pane takes the bottom 30%, the server keeps 70%
 
 [[tabs]]
 name = "terminal"   # no command — just an empty shell

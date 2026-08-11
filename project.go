@@ -30,11 +30,25 @@ const maxPanesPerTab = 4
 // ProjectPane is one pane within a tab. Command, when set, runs in the pane on
 // startup. Split is how the pane is created relative to the previous pane in the
 // tab — "down" or "right"; it is ignored for the first pane (the tab's root) and
-// defaults to "down" when omitted.
+// defaults to "down" when omitted. Ratio is the share of the split this pane
+// takes, between 0 and 1; omitting it splits the space evenly, and it is ignored
+// for the first pane, which has nothing to split off.
 type ProjectPane struct {
-	Command string `toml:"command"`
-	Split   string `toml:"split"`
-	Label   string `toml:"label"`
+	Command string  `toml:"command"`
+	Split   string  `toml:"split"`
+	Label   string  `toml:"label"`
+	Ratio   float64 `toml:"ratio"`
+}
+
+// splitRatio translates the pane's authored ratio — the share of the split it
+// takes — into the ratio herdr's pane.split expects, which is the share kept by
+// the pane being split. A zero ratio means the pane did not ask for one, and is
+// passed through as zero so the caller can leave it out of the request.
+func (p ProjectPane) splitRatio() float64 {
+	if p.Ratio <= 0 {
+		return 0
+	}
+	return 1 - p.Ratio
 }
 
 // ProjectTab is one tab in a project's workspace, in the order it should be
@@ -49,9 +63,9 @@ type ProjectTab struct {
 }
 
 // effectivePanes returns the tab's panes in creation order, normalizing the two
-// authoring forms into one list. The first pane is the tab's root (its split is
-// cleared); each later pane carries the direction it splits off the previous
-// one, defaulting to "down".
+// authoring forms into one list. The first pane is the tab's root (its split and
+// ratio are cleared); each later pane carries the direction it splits off the
+// previous one, defaulting to "down".
 func (t ProjectTab) effectivePanes() []ProjectPane {
 	if len(t.Panes) == 0 {
 		return []ProjectPane{{Command: t.Command}}
@@ -61,6 +75,7 @@ func (t ProjectTab) effectivePanes() []ProjectPane {
 		panes[i] = p
 		if i == 0 {
 			panes[i].Split = ""
+			panes[i].Ratio = 0
 			continue
 		}
 		if panes[i].Split == "" {
@@ -185,8 +200,9 @@ func (p Project) validate() error {
 // validateTabs checks the per-tab rules shared by projects and worktree layouts:
 // every tab needs a name; a tab uses either a single command or [[tabs.panes]],
 // never both; a tab holds at most maxPanesPerTab panes; and every non-root pane's
-// split is "down" or "right". label and source identify the owning config in
-// error messages — a project's name or a layout's repo, and the file it came from.
+// split is "down" or "right" with a ratio inside 0..1. label and source identify
+// the owning config in error messages — a project's name or a layout's repo, and
+// the file it came from.
 func validateTabs(label, source string, tabs []ProjectTab) error {
 	for i, t := range tabs {
 		if strings.TrimSpace(t.Name) == "" {
@@ -207,6 +223,12 @@ func validateTabs(label, source string, tabs []ProjectTab) error {
 				// ok — an empty split defaults to "down"
 			default:
 				return fmt.Errorf("%q (%s): tab %q pane %d has split %q; must be %q or %q", label, source, t.Name, j+1, pane.Split, SplitDown, SplitRight)
+			}
+			// A zero ratio is an omitted one — an even split. herdr silently clamps
+			// anything outside its own range, so a typo like ratio = 30 would open a
+			// workspace that looks nothing like the config; catch it at load time.
+			if pane.Ratio < 0 || pane.Ratio >= 1 {
+				return fmt.Errorf("%q (%s): tab %q pane %d has ratio %v; must be greater than 0 and less than 1", label, source, t.Name, j+1, pane.Ratio)
 			}
 		}
 	}

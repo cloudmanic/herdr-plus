@@ -177,6 +177,11 @@ func TestProjectValidate(t *testing.T) {
 		{"too many panes", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: fivePanes}}}, true},
 		{"bad split", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {Split: "sideways"}}}}}, true},
 		{"first pane split ignored", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{Split: "sideways"}}}}}, false},
+		{"ok ratio", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {Ratio: 0.3}}}}}, false},
+		{"ratio as percentage", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {Ratio: 30}}}}}, true},
+		{"ratio of one", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {Ratio: 1}}}}}, true},
+		{"negative ratio", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {Ratio: -0.2}}}}}, true},
+		{"first pane ratio ignored", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{Ratio: 30}}}}}, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -229,6 +234,41 @@ func TestEffectivePanes(t *testing.T) {
 	}
 	if labeled[2].Label != "Empty" {
 		t.Fatalf("pane 2 label = %q, want Empty", labeled[2].Label)
+	}
+
+	// The root pane has nothing to split off, so its ratio is dropped; later panes
+	// keep theirs.
+	sized := ProjectTab{Name: "editor", Panes: []ProjectPane{
+		{Command: "nvim", Ratio: 0.4},
+		{Command: "lazygit", Split: "right", Ratio: 0.3},
+	}}.effectivePanes()
+	if sized[0].Ratio != 0 {
+		t.Fatalf("root pane ratio = %v, want 0", sized[0].Ratio)
+	}
+	if sized[1].Ratio != 0.3 {
+		t.Fatalf("pane 2 ratio = %v, want 0.3", sized[1].Ratio)
+	}
+}
+
+// TestSplitRatio confirms an authored ratio is flipped into the share herdr's
+// pane.split keeps for the pane being split, and that an unset ratio stays zero
+// so the request omits it.
+func TestSplitRatio(t *testing.T) {
+	cases := []struct {
+		name string
+		pane ProjectPane
+		want float64
+	}{
+		{"unset", ProjectPane{}, 0},
+		{"third", ProjectPane{Ratio: 0.25}, 0.75},
+		{"half", ProjectPane{Ratio: 0.5}, 0.5},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := c.pane.splitRatio(); got != c.want {
+				t.Fatalf("splitRatio() = %v, want %v", got, c.want)
+			}
+		})
 	}
 }
 
