@@ -193,7 +193,7 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane string, tabs []Projec
 		for j, pane := range t.effectivePanes() {
 			paneID := tabRoot
 			if j > 0 {
-				paneID, err = client.paneSplit(prev, pane.Split, false)
+				paneID, err = client.paneSplit(prev, pane.Split, pane.splitRatio(), false)
 				if err != nil {
 					return fmt.Errorf("split pane %d in tab %q: %w", j+1, t.Name, err)
 				}

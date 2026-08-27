@@ -133,9 +133,33 @@ Each pane:
   - `"down"` — stacked below (top/bottom).
   - `"right"` — beside it (side by side).
   - Omitted — defaults to `"down"`.
+- `ratio` — optional. How much of the split this pane takes, between `0` and `1`.
+  Omitted, the split is even.
 
-The **first pane is the tab's root**, so its `split` is ignored. Each later pane
-splits off the one before it.
+The **first pane is the tab's root**, so its `split` and `ratio` are ignored.
+Each later pane splits off the one before it.
+
+### Sizing a split
+
+`ratio` is the share the pane it is written on gets; the pane it splits off keeps
+the rest. Here the editor fills three quarters of the tab and lazygit sits in the
+last quarter:
+
+```toml
+[[tabs]]
+name = "editor"
+
+[[tabs.panes]]
+command = "nvim"
+
+[[tabs.panes]]
+command = "lazygit"
+split = "right"
+ratio = 0.25
+```
+
+A ratio outside `0`–`1` (a percentage like `30`, say) is a load-time error rather
+than a silently clamped layout.
 
 ### `command` vs. `[[tabs.panes]]` are mutually exclusive
 
