@@ -30,6 +30,24 @@ const docsURL = "https://github.com/cloudmanic/herdr-plus"
 // mouse click's screen row minus this offset is the list-local line for clickRow.
 const projectsHeaderLines = 2
 
+// projectsChromeLines is every fixed line around the list's body in
+// browserView: the title bar and its blank line (projectsHeaderLines), the
+// query/prompt block (listPromptLines), the minimum one-line gap above the
+// detail bar, the four-line detail box, and the footer. The list's body budget
+// is the pane height minus this, so the browser always fits the pane instead of
+// overflowing it when there are more projects than rows.
+const projectsChromeLines = projectsHeaderLines + listPromptLines + 1 + 4 + 1
+
+// listViewport applies the pane size to the embedded list: the body-line budget
+// left after the fixed chrome, and the full pane width as the row cap.
+func (m *projectsModel) listViewport() {
+	budget := m.height - projectsChromeLines
+	if budget < 1 {
+		budget = 1
+	}
+	m.list.setViewport(budget, m.width)
+}
+
 type projectsMode int
 
 const (
@@ -229,6 +247,7 @@ func (m projectsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.listViewport()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -297,6 +316,7 @@ func (m projectsModel) updateBranch(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.listViewport()
 		return m, nil
 
 	case tea.KeyMsg:

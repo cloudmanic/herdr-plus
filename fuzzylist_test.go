@@ -9,6 +9,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 // TestFuzzyListSkipsSeparators confirms the cursor starts on a selectable row
@@ -203,5 +205,73 @@ func TestFuzzyListQueryChangeResetsCursor(t *testing.T) {
 	}
 	if got := l.selectedIndex(); got != 1 {
 		t.Fatalf("selectedIndex after clearing query = %d, want 1 (alpha)", got)
+	}
+}
+
+// TestFuzzyListViewportScrollsWithCursor confirms that with a row budget set,
+// view() emits at most that many body lines, the window follows the cursor in
+// both directions, and rowIndexAt maps clicks through the scrolled window.
+func TestFuzzyListViewportScrollsWithCursor(t *testing.T) {
+	var items []listItem
+	names := []string{"alpha", "bravo", "charlie", "delta", "echo", "foxtrot"}
+	for i, n := range names {
+		items = append(items, listItem{name: n, selectable: true, ref: i})
+	}
+	l := newFuzzyList("", items)
+	l.setViewport(3, 80)
+
+	bodyLines := func() []string {
+		out := strings.Split(strings.TrimRight(l.view("none"), "\n"), "\n")
+		return out[listPromptLines:] // drop the query line and its blank spacer
+	}
+
+	if got := len(bodyLines()); got != 3 {
+		t.Fatalf("visible body lines = %d, want 3", got)
+	}
+
+	// Walk to the last row: the window must scroll so the cursor stays visible.
+	for i := 0; i < len(names)-1; i++ {
+		l.moveDown()
+	}
+	if got := l.selectedIndex(); got != 5 {
+		t.Fatalf("after walking down selected = %d, want 5", got)
+	}
+	lines := bodyLines()
+	if got := len(lines); got != 3 {
+		t.Fatalf("visible body lines after scroll = %d, want 3", got)
+	}
+	if !strings.Contains(lines[len(lines)-1], "foxtrot") {
+		t.Fatalf("cursor row not visible after scrolling down: %q", lines)
+	}
+
+	// A click on the first visible body line must resolve through the scroll
+	// offset to the row actually drawn there.
+	if got := l.rowIndexAt(listPromptLines); got != 3 {
+		t.Fatalf("rowIndexAt(top of window) = %d, want 3 (delta)", got)
+	}
+
+	// Walking back up scrolls the window back to the top.
+	for i := 0; i < len(names)-1; i++ {
+		l.moveUp()
+	}
+	lines = bodyLines()
+	if !strings.Contains(lines[0], "alpha") {
+		t.Fatalf("cursor row not visible after scrolling back up: %q", lines)
+	}
+}
+
+// TestFuzzyListViewportTruncatesRows confirms the width cap keeps every emitted
+// line within the viewport so nothing soft-wraps in the terminal.
+func TestFuzzyListViewportTruncatesRows(t *testing.T) {
+	long := strings.Repeat("x", 60)
+	l := newFuzzyList("", []listItem{
+		{name: long, desc: strings.Repeat("y", 60), selectable: true, ref: 0},
+	})
+	l.setViewport(5, 20)
+
+	for _, line := range strings.Split(strings.TrimRight(l.view("none"), "\n"), "\n")[listPromptLines:] {
+		if w := lipgloss.Width(line); w > 20 {
+			t.Fatalf("body line is %d columns wide, want <= 20: %q", w, line)
+		}
 	}
 }

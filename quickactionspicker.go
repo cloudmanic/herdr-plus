@@ -132,6 +132,8 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.actionList.setViewport(m.listBudget(), msg.Width)
+		m.optionList.setViewport(m.listBudget(), msg.Width)
 		return m, nil
 
 	case tea.MouseMsg:
@@ -228,6 +230,7 @@ func (m pickerModel) activateAction() (tea.Model, tea.Cmd) {
 			m.resolvedOptions = options
 			m.optionList = newFuzzyList("Pick an option…", optionItems(options))
 		}
+		m.optionList.setViewport(m.listBudget(), m.width)
 		m.stage = stageSelect
 		return m, textinput.Blink
 	case TypeForm:
@@ -300,6 +303,18 @@ func (m pickerModel) updateForm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.formInput, cmd = m.formInput.Update(msg)
 	return m, cmd
+}
+
+// listBudget is the body-line budget for a picker list at the current pane
+// size: the height minus the title bar and its blank line (pickerHeaderLines),
+// the query/prompt block (listPromptLines), and the blank-plus-footer below the
+// list — so the picker always fits the pane instead of overflowing it.
+func (m pickerModel) listBudget() int {
+	b := m.height - pickerHeaderLines - listPromptLines - 2
+	if b < 1 {
+		b = 1
+	}
+	return b
 }
 
 // forwardToInput passes a non-key message to whichever input is active so the
