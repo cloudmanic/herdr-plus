@@ -31,4 +31,5 @@ var (
 	barStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Bold(true)
 	footerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	headingStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Bold(true)
+	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 )
