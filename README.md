@@ -219,6 +219,24 @@ label = "Herdr Plus"
 value = "herdr-plus"
 ```
 
+A select action can build its list at open time instead of hard-coding it. Set
+`options_command` in place of `[[options]]` and it runs fresh every time the
+action is picked, one option per line of stdout:
+
+```toml
+# select — options come from a command, so the list follows what is on disk
+name = "New Project"
+type = "select"
+options_command = "ls -1 ~/projects"
+command = "cd ~/projects/{{.Value}} && $EDITOR ."
+```
+
+`options_command` is templated exactly like `command`, so it can reference
+`{{.WorkDir}}` and friends. A line becomes the option's label *and* value; add a
+tab to give it a description — `herdr-plus\tinstalled` shows "installed" beside
+the row without it ending up in `{{.Value}}`. If the command fails, the picker
+shows the error as an unselectable row rather than an empty list.
+
 ```toml
 # form — type a value that becomes {{.Value}}
 name = "Search Google"
