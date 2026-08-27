@@ -115,6 +115,71 @@ func TestPickerMouseClickRunsAction(t *testing.T) {
 	}
 }
 
+// TestPickerSelectActionWithOptionsCommand drives a select action whose options
+// come from OptionsCommand (not the static Options list) end to end: choosing the
+// action runs the command and populates the list, then choosing a row must resolve
+// to that row's value. This guards against indexing the picker's chosen option
+// into the action's (empty) static Options slice instead of the freshly resolved
+// list — that mismatch used to panic for any options_command-based action.
+func TestPickerSelectActionWithOptionsCommand(t *testing.T) {
+	actions := []Action{
+		{Name: "Pick", Type: TypeSelect, Command: "echo {{.Value}}", OptionsCommand: "printf 'alpha\\nbeta\\n'", origin: originGlobal},
+	}
+	m := newPickerModel(RunContext{}, actions)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	pm, ok := updated.(pickerModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want pickerModel", updated)
+	}
+	if pm.stage != stageSelect {
+		t.Fatalf("stage = %v, want stageSelect", pm.stage)
+	}
+	if len(pm.resolvedOptions) != 2 || pm.resolvedOptions[0].Label != "alpha" || pm.resolvedOptions[1].Label != "beta" {
+		t.Fatalf("resolvedOptions = %+v, want [alpha beta]", pm.resolvedOptions)
+	}
+
+	updated2, _ := pm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	pm2, ok := updated2.(pickerModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want pickerModel", updated2)
+	}
+	if pm2.chosen == nil || pm2.value != "alpha" {
+		t.Fatalf("chosen=%v value=%q, want the action chosen with value %q", pm2.chosen, pm2.value, "alpha")
+	}
+}
+
+// TestPickerSelectActionOptionsCommandError confirms a failing OptionsCommand
+// surfaces as a non-selectable error row instead of crashing the picker or
+// silently showing an empty list, and that pressing enter on that row is a no-op.
+func TestPickerSelectActionOptionsCommandError(t *testing.T) {
+	actions := []Action{
+		{Name: "Pick", Type: TypeSelect, Command: "echo {{.Value}}", OptionsCommand: "exit 1", origin: originGlobal},
+	}
+	m := newPickerModel(RunContext{}, actions)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	pm, ok := updated.(pickerModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want pickerModel", updated)
+	}
+	if pm.stage != stageSelect {
+		t.Fatalf("stage = %v, want stageSelect even after an options_command error", pm.stage)
+	}
+	if pm.resolvedOptions != nil {
+		t.Fatalf("resolvedOptions = %+v, want nil after a failing options_command", pm.resolvedOptions)
+	}
+
+	updated2, _ := pm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	pm2, ok := updated2.(pickerModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want pickerModel", updated2)
+	}
+	if pm2.chosen != nil {
+		t.Fatalf("chosen = %v, want nil (the error row is not selectable)", pm2.chosen)
+	}
+}
+
 // TestPickerMouseWheelMoves confirms the scroll wheel walks the highlight without
 // running anything.
 func TestPickerMouseWheelMoves(t *testing.T) {

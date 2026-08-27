@@ -111,6 +111,7 @@ func TestActionValidate(t *testing.T) {
 		{"missing name", Action{Command: "open x"}, true},
 		{"missing command", Action{Name: "A"}, true},
 		{"select without options", Action{Name: "A", Type: TypeSelect, Command: "x"}, true},
+		{"select with options_command", Action{Name: "A", Type: TypeSelect, Command: "x", OptionsCommand: "ls"}, false},
 		{"unknown type", Action{Name: "A", Type: "wat", Command: "x"}, true},
 	}
 
@@ -136,6 +137,81 @@ func TestOptionResolvedValue(t *testing.T) {
 	if got := (Option{Label: "herdr-plus"}).resolvedValue(); got != "herdr-plus" {
 		t.Fatalf("resolvedValue = %q, want label fallback %q", got, "herdr-plus")
 	}
+}
+
+// TestActionResolveOptions covers the two ways a select action's option list is
+// produced: the static Options list (OptionsCommand unset), and running
+// OptionsCommand fresh through the shell — including that it is template
+// rendered, that blank lines are dropped, and that a failing command surfaces
+// as an error rather than an empty list (which would look like "no options" to
+// the picker, not "the command broke").
+func TestActionResolveOptions(t *testing.T) {
+	staticOpts := []Option{{Label: "x"}, {Label: "y"}}
+
+	t.Run("static options unaffected when no options_command", func(t *testing.T) {
+		a := Action{Name: "A", Type: TypeSelect, Options: staticOpts}
+		got, err := a.resolveOptions(RunContext{})
+		if err != nil {
+			t.Fatalf("resolveOptions: %v", err)
+		}
+		if len(got) != 2 || got[0].Label != "x" || got[1].Label != "y" {
+			t.Fatalf("resolveOptions = %+v, want static Options unchanged", got)
+		}
+	})
+
+	t.Run("options_command lines become options, blanks dropped", func(t *testing.T) {
+		a := Action{Name: "A", Type: TypeSelect, OptionsCommand: "printf 'one\\n\\ntwo\\n'"}
+		got, err := a.resolveOptions(RunContext{})
+		if err != nil {
+			t.Fatalf("resolveOptions: %v", err)
+		}
+		want := []string{"one", "two"}
+		if len(got) != len(want) {
+			t.Fatalf("resolveOptions = %+v, want %d options", got, len(want))
+		}
+		for i, w := range want {
+			if got[i].Label != w || got[i].Value != w {
+				t.Fatalf("option %d = %+v, want label/value %q", i, got[i], w)
+			}
+		}
+	})
+
+	t.Run("options_command line with a tab splits into value and description", func(t *testing.T) {
+		a := Action{Name: "A", Type: TypeSelect, OptionsCommand: `printf 'plain\nnvim-ide\t(already added)\n'`}
+		got, err := a.resolveOptions(RunContext{})
+		if err != nil {
+			t.Fatalf("resolveOptions: %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("resolveOptions = %+v, want 2 options", got)
+		}
+		if got[0].Label != "plain" || got[0].Value != "plain" || got[0].Description != "" {
+			t.Fatalf("option 0 = %+v, want plain with no description", got[0])
+		}
+		if got[1].Label != "nvim-ide" || got[1].Value != "nvim-ide" || got[1].Description != "(already added)" {
+			t.Fatalf("option 1 = %+v, want label/value %q and description %q", got[1], "nvim-ide", "(already added)")
+		}
+	})
+
+	t.Run("options_command is template rendered", func(t *testing.T) {
+		// SessionTitle (not WorkDir) so the test doesn't also depend on cmd.Dir
+		// pointing at a directory that exists on disk.
+		a := Action{Name: "A", Type: TypeSelect, OptionsCommand: "echo {{.SessionTitle}}"}
+		got, err := a.resolveOptions(RunContext{WorkspaceLabel: "my-project"})
+		if err != nil {
+			t.Fatalf("resolveOptions: %v", err)
+		}
+		if len(got) != 1 || got[0].Label != "my-project" {
+			t.Fatalf("resolveOptions = %+v, want [my-project]", got)
+		}
+	})
+
+	t.Run("failing options_command is an error, not an empty list", func(t *testing.T) {
+		a := Action{Name: "A", Type: TypeSelect, OptionsCommand: "exit 1"}
+		if _, err := a.resolveOptions(RunContext{}); err == nil {
+			t.Fatal("resolveOptions: expected error from a failing command, got nil")
+		}
+	})
 }
 
 // Shell quoting is OS-specific and lives in shell_test.go (posixQuote /
