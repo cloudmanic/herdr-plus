@@ -94,3 +94,50 @@ func TestLoadPluginConfigRejectsMalformedFile(t *testing.T) {
 		t.Fatal("expected malformed config.toml to error")
 	}
 }
+
+// TestLoadPluginConfigParsesPlacements confirms config.toml can set the optional
+// per-picker pane placement overrides.
+func TestLoadPluginConfigParsesPlacements(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", dir)
+
+	toml := "[projects]\nplacement = \"popup\"\n\n[quick_actions]\nplacement = \"split\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(toml), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := loadPluginConfig()
+	if err != nil {
+		t.Fatalf("loadPluginConfig: %v", err)
+	}
+	if cfg.Projects.Placement != "popup" {
+		t.Fatalf("Projects.Placement = %q, want popup", cfg.Projects.Placement)
+	}
+	if cfg.QuickActions.Placement != "split" {
+		t.Fatalf("QuickActions.Placement = %q, want split", cfg.QuickActions.Placement)
+	}
+}
+
+// TestResolvePlacement covers the fallback rules: empty config keeps the
+// default, a valid override is used as-is, and an invalid value falls back
+// rather than being passed through to herdr.
+func TestResolvePlacement(t *testing.T) {
+	cases := []struct {
+		name       string
+		configured string
+		fallback   string
+		want       string
+	}{
+		{"empty uses fallback", "", "overlay", "overlay"},
+		{"valid override is used", "popup", "overlay", "popup"},
+		{"another valid override is used", "zoomed", "overlay", "zoomed"},
+		{"invalid value falls back", "not-a-placement", "zoomed", "zoomed"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := resolvePlacement(c.configured, c.fallback); got != c.want {
+				t.Fatalf("resolvePlacement(%q, %q) = %q, want %q", c.configured, c.fallback, got, c.want)
+			}
+		})
+	}
+}

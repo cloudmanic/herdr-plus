@@ -40,3 +40,38 @@ func TestWorktreeCreateParams(t *testing.T) {
 		})
 	}
 }
+
+// TestPaneSplitParams confirms the pane.split contract: the target, direction and
+// focus always ride along, while a zero ratio is left out so herdr splits evenly.
+func TestPaneSplitParams(t *testing.T) {
+	cases := []struct {
+		name    string
+		ratio   float64
+		wantKey bool
+	}{
+		{"unset", 0, false},
+		{"negative", -0.5, false},
+		{"set", 0.75, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := paneSplitParams("w1:p1", SplitRight, c.ratio, false)
+			if got["target_pane_id"] != "w1:p1" {
+				t.Fatalf("target_pane_id = %v, want w1:p1", got["target_pane_id"])
+			}
+			if got["direction"] != SplitRight {
+				t.Fatalf("direction = %v, want %q", got["direction"], SplitRight)
+			}
+			if got["focus"] != false {
+				t.Fatalf("focus = %v, want false", got["focus"])
+			}
+			ratio, ok := got["ratio"]
+			if ok != c.wantKey {
+				t.Fatalf("ratio key present = %v, want %v (params=%v)", ok, c.wantKey, got)
+			}
+			if ok && ratio != c.ratio {
+				t.Fatalf("ratio = %v, want %v", ratio, c.ratio)
+			}
+		})
+	}
+}

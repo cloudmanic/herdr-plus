@@ -11,17 +11,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"strings"
 	"time"
 )
 
-// herdrClient talks to the running herdr instance over its unix domain socket.
-// The protocol is newline-delimited JSON: one request object per line, one
-// response object per line. Each call opens a short-lived connection, writes a
-// single request, and reads a single response. herdr injects HERDR_SOCKET_PATH
-// into every plugin command, so this works whenever herdr runs us.
+// herdrClient talks to the running herdr instance over its local IPC endpoint:
+// a unix domain socket on macOS/Linux and a named pipe on Windows (dialHerdr
+// hides the difference). The protocol is newline-delimited JSON: one request
+// object per line, one response object per line. Each call opens a short-lived
+// connection, writes a single request, and reads a single response. herdr
+// injects HERDR_SOCKET_PATH into every plugin command, so this works whenever
+// herdr runs us.
 type herdrClient struct {
 	socketPath string
 }
@@ -60,9 +61,9 @@ type response struct {
 // call sends a single request over a fresh connection and decodes the result
 // into out (which may be nil when the caller does not care about the payload).
 func (c *herdrClient) call(method string, params map[string]any, out any) error {
-	conn, err := net.Dial("unix", c.socketPath)
+	conn, err := dialHerdr(c.socketPath)
 	if err != nil {
-		return fmt.Errorf("connect herdr socket: %w", err)
+		return fmt.Errorf("connect herdr IPC endpoint: %w", err)
 	}
 	defer conn.Close()
 
@@ -109,21 +110,33 @@ func (c *herdrClient) worktreeCreate(cwd, branch string, focus bool) error {
 	return c.call("worktree.create", worktreeCreateParams(cwd, branch, focus), nil)
 }
 
+// paneSplitParams builds the pane.split payload. A zero ratio is omitted so herdr
+// applies its own even split; any other value is the share of the space the target
+// pane keeps.
+func paneSplitParams(targetPaneID, direction string, ratio float64, focus bool) map[string]any {
+	params := map[string]any{
+		"target_pane_id": targetPaneID,
+		"direction":      direction,
+		"focus":          focus,
+	}
+	if ratio > 0 {
+		params["ratio"] = ratio
+	}
+	return params
+}
+
 // paneSplit splits the target pane in the given direction ("down" for a new pane
 // beneath it, "right" for one beside it), creating a new pane, and returns the
-// new pane's id. When focus is true the new pane becomes the focused pane (the
+// new pane's id. ratio is the share of the space the target pane keeps, zero for
+// an even split. When focus is true the new pane becomes the focused pane (the
 // socket API does not focus new panes by default).
-func (c *herdrClient) paneSplit(targetPaneID, direction string, focus bool) (string, error) {
+func (c *herdrClient) paneSplit(targetPaneID, direction string, ratio float64, focus bool) (string, error) {
 	var out struct {
 		Pane struct {
 			PaneID string `json:"pane_id"`
 		} `json:"pane"`
 	}
-	err := c.call("pane.split", map[string]any{
-		"target_pane_id": targetPaneID,
-		"direction":      direction,
-		"focus":          focus,
-	}, &out)
+	err := c.call("pane.split", paneSplitParams(targetPaneID, direction, ratio, focus), &out)
 	if err != nil {
 		return "", err
 	}
@@ -172,35 +185,59 @@ func (c *herdrClient) paneRead(paneID, source string, lines int) (string, error)
 	return out.Read.Text, nil
 }
 
+// keyCtrlU clears the shell's pending input line (backward-kill-line, bound in
+// both zsh's emacs and vi-insert keymaps).
+const keyCtrlU = "ctrl+u"
+
 // runCommand types command into a freshly created pane and submits it, pacing
 // itself to the shell's startup so the command actually runs instead of sitting
 // unsubmitted at the prompt. There are two startup races it has to dodge:
 //
 //   - Typing too early: a pane created moments ago may not have an interactive
-//     shell yet; keystrokes sent into that gap are dropped. So we first wait for
-//     the shell to draw its prompt.
+//     shell yet; keystrokes sent into that gap are dropped — often just the
+//     first character ("claude" lands as "laude"). Startup output also paints
+//     in bursts, so readiness means a quiescent screen, not the first paint.
 //   - Submitting too early: even once typing lands, pressing Enter before the
-//     shell's line editor has the text races startup and the line is lost. So we
-//     wait until the command visibly echoes before pressing Enter.
+//     shell's line editor has the text races startup and the line is lost.
 //
-// Submission is a real Enter key, never a trailing "\n" in the text — herdr pastes
-// text, and an embedded newline is inserted literally once zsh's line editor is
-// active rather than running the line (see sendInput). Every wait is best effort:
-// on timeout we proceed anyway, so a slow or unusual shell degrades to the old
-// blind behavior rather than hanging.
+// So Enter is only pressed once the command visibly echoes back intact; a
+// mangled echo means the line is cleared (ctrl+u) and retyped, a few attempts.
+// Submission is a real Enter key, never a trailing "\n" in the text — herdr
+// pastes text, and an embedded newline is inserted literally once zsh's line
+// editor is active rather than running the line (see sendInput). Every wait is
+// best effort: once the retries are exhausted the last attempt is submitted
+// blindly, so a shell that never echoes (or a very slow one) degrades to the
+// old behavior rather than hanging.
 func (c *herdrClient) runCommand(paneID, command string) error {
 	// 1. Wait for the shell to be ready to receive input (its prompt is drawn).
-	c.waitForPaneReady(paneID, 5*time.Second)
+	c.waitForPaneReady(paneID, 10*time.Second)
 
-	// 2. Type the command (no trailing newline).
-	if err := c.sendInput(paneID, command); err != nil {
-		return err
+	probe := commandEchoProbe(command)
+	const maxAttempts = 3
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if attempt > 1 {
+			// The previous attempt left a mangled line at the prompt (e.g. a
+			// leading character swallowed by shell startup). Clear it before
+			// retyping. Best effort.
+			_ = c.sendInput(paneID, "", keyCtrlU)
+			time.Sleep(200 * time.Millisecond)
+		}
+
+		// 2. Type the command (no trailing newline).
+		if err := c.sendInput(paneID, command); err != nil {
+			return err
+		}
+
+		// 3. Only submit once the command visibly echoes back intact, proving
+		// the line editor accepted every character.
+		if c.waitForPaneText(paneID, probe, 3*time.Second) {
+			return c.sendInput(paneID, "", "Enter")
+		}
 	}
 
-	// 3. Wait until the command echoes back, proving the line editor accepted it.
-	c.waitForPaneText(paneID, commandEchoProbe(command), 5*time.Second)
-
-	// 4. Submit with a real Enter key.
+	// Every verification failed — the pane may simply not echo (unusual shell,
+	// full-screen program). Degrade to the old blind behavior rather than give
+	// up: the last typed attempt is still at the prompt, submit it.
 	return c.sendInput(paneID, "", "Enter")
 }
 
@@ -221,34 +258,39 @@ func commandEchoProbe(command string) string {
 	return strings.TrimSpace(probe)
 }
 
-// waitForPaneReady blocks until the pane shows any non-blank content — its shell
-// prompt — or the timeout elapses. A fresh pane is blank until its shell starts
-// and prints a prompt, so non-blank content is a good "ready for input" signal.
+// waitForPaneReady blocks until the pane's visible content is non-blank AND
+// quiescent — two consecutive identical reads ~200ms apart — or the timeout
+// elapses. A fresh pane's shell paints in bursts while it starts up (compinit,
+// plugin managers, prompt frameworks), and keystrokes sent into that window can
+// be swallowed; first-paint is too early a signal, a settled screen is not.
 // Best effort: a timeout just means we stop waiting and proceed.
 func (c *herdrClient) waitForPaneReady(paneID string, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
+	prev := ""
 	for time.Now().Before(deadline) {
-		if text, err := c.paneRead(paneID, "visible", 5); err == nil && strings.TrimSpace(text) != "" {
+		text, err := c.paneRead(paneID, "visible", 10)
+		if err == nil && strings.TrimSpace(text) != "" && text == prev {
 			return
 		}
-		time.Sleep(50 * time.Millisecond)
+		prev = text
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 
-// waitForPaneText blocks until the pane's visible text contains probe or the
-// timeout elapses. An empty probe returns immediately. Best effort, like
-// waitForPaneReady: a timeout returns without error and the caller proceeds.
-func (c *herdrClient) waitForPaneText(paneID, probe string, timeout time.Duration) {
+// waitForPaneText blocks until the pane's visible text contains probe, reporting
+// whether it appeared before the timeout. An empty probe matches immediately.
+func (c *herdrClient) waitForPaneText(paneID, probe string, timeout time.Duration) bool {
 	if probe == "" {
-		return
+		return true
 	}
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if text, err := c.paneRead(paneID, "visible", 20); err == nil && strings.Contains(text, probe) {
-			return
+			return true
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
+	return false
 }
 
 // closePane terminates a pane and frees its terminal. Closing the focused pane

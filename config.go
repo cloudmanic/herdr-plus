@@ -25,6 +25,17 @@ import (
 //go:embed examples
 var embeddedExamples embed.FS
 
+// validPanePlacements are the values herdr's `plugin pane open --placement`
+// accepts. Kept in sync with herdr's own CLI (src/cli/spec.rs / src/cli/plugin.rs
+// upstream) since we pass the configured value straight through.
+var validPanePlacements = map[string]bool{
+	"overlay": true,
+	"popup":   true,
+	"split":   true,
+	"tab":     true,
+	"zoomed":  true,
+}
+
 // PluginConfig holds herdr-plus's optional global settings, read from config.toml
 // at the config root (alongside projects/ and quick-actions/). Every field is
 // optional; an absent file yields the zero value.
@@ -36,6 +47,39 @@ type PluginConfig struct {
 		// is left untouched (see resolveWorktreeBranch).
 		BranchPrefix string `toml:"branch_prefix"`
 	} `toml:"worktree"`
+
+	Projects struct {
+		// Placement overrides the pane placement used to open the projects
+		// browser, one of overlay, popup, split, tab, or zoomed (see herdr's
+		// `plugin pane open --placement`). Empty keeps the built-in default,
+		// zoomed.
+		Placement string `toml:"placement"`
+	} `toml:"projects"`
+
+	QuickActions struct {
+		// Placement overrides the pane placement used to open the quick-actions
+		// picker, one of overlay, popup, split, tab, or zoomed (see herdr's
+		// `plugin pane open --placement`). Empty keeps the built-in default,
+		// overlay.
+		Placement string `toml:"placement"`
+	} `toml:"quick_actions"`
+}
+
+// resolvePlacement returns configured if it is a valid herdr pane placement,
+// otherwise fallback (the feature's built-in default). An empty configured
+// value — the common case, nothing set in config.toml — silently keeps the
+// default. An invalid non-empty value also falls back rather than handing
+// herdr a value it will reject, but is reported to stderr so a typo in
+// config.toml doesn't silently do nothing.
+func resolvePlacement(configured, fallback string) string {
+	if configured == "" {
+		return fallback
+	}
+	if !validPanePlacements[configured] {
+		fmt.Fprintf(os.Stderr, "herdr-plus: config.toml: placement %q is not a valid herdr pane placement (overlay, popup, split, tab, zoomed); using %q\n", configured, fallback)
+		return fallback
+	}
+	return configured
 }
 
 // configBaseDir returns the root configuration directory for herdr-plus's

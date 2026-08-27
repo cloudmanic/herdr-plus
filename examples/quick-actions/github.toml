@@ -4,4 +4,6 @@
 
 name = "GitHub"
 description = "Open https://github.com"
-command = "open https://github.com"
+# {{opener}} expands to your OS's default open command (open / xdg-open /
+# Start-Process), so the same action works on macOS, Linux, and Windows.
+command = "{{opener}} https://github.com"

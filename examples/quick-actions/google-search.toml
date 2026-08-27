@@ -7,7 +7,7 @@
 name = "Search Google"
 description = "Type a query and open the results"
 type = "form"
-command = "open 'https://www.google.com/search?q={{.Value | urlquery}}'"
+command = "{{opener}} 'https://www.google.com/search?q={{.Value | urlquery}}'"
 
 [form]
 prompt = "Search Google for"

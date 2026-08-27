@@ -9,8 +9,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 )
+
+// pluginID is herdr-plus's plugin id, matching the `id` field in
+// herdr-plugin.toml. It is how herdr identifies the plugin — used when opening
+// plugin-owned panes and when asking herdr for our managed config directory.
+const pluginID = "cloudmanic.herdr-plus"
 
 // errExit prints a "herdr-plus:"-prefixed message to stderr and exits non-zero.
 func errExit(args ...any) {
@@ -27,11 +31,4 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
-}
-
-// shellQuote wraps a string in single quotes so the shell treats it as one
-// literal argument, escaping any embedded single quotes the usual POSIX way
-// ('\'' closes the quote, adds an escaped quote, and reopens it).
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

@@ -22,6 +22,12 @@ plugin's actions. The build step **prefers a local Go toolchain** (an exact buil
 of the cloned source) and **falls back to downloading the latest prebuilt release
 binary**, so it works **with or without Go**.
 
+> **Windows** (herdr's Windows support is in preview): the plugin's Windows build
+> step compiles straight from source with the Go toolchain — there is **no
+> prebuilt-binary fallback** like the Linux/macOS `sh` script has — so **Go must
+> be on your `PATH`** to install. On Windows the plugin talks to herdr over a
+> named pipe rather than a unix socket.
+
 After it finishes, manage the plugin with:
 
 ```bash
@@ -92,7 +98,9 @@ curl -fsSL https://raw.githubusercontent.com/cloudmanic/herdr-plus/main/install.
 ## Supported platforms
 
 Releases are cross-compiled for **Linux** and **macOS** on `amd64` (x86_64) and
-`arm64` (aarch64). herdr-plus is not tested on Windows.
+`arm64` (aarch64), plus **Windows** on `amd64` (shipped as a `.zip`). Windows
+support tracks herdr's Windows beta and is validated against it; installing on
+Windows builds from source, so it needs Go on your `PATH` (see the note above).
 
 ## Checking the version
 

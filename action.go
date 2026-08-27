@@ -10,10 +10,17 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"text/template"
 )
+
+// templateFuncs are the helper functions available inside a quick action's
+// command template, on top of text/template's builtins (e.g. urlquery). opener
+// expands to the platform's default open command so a single action works on
+// every OS — see opener in shell.go.
+func templateFuncs() template.FuncMap {
+	return template.FuncMap{"opener": opener}
+}
 
 // Action types. An action's Type decides what happens between selecting it in
 // the picker and running its command.
@@ -87,12 +94,17 @@ type FormConfig struct {
 // text/template rendered against a RunContext, so it can reference {{.Value}},
 // {{.WorkDir}}, {{.SessionTitle}}, and the other context fields.
 type Action struct {
-	Name        string     `toml:"name"`
-	Description string     `toml:"description"`
-	Type        string     `toml:"type"`
-	Command     string     `toml:"command"`
-	Options     []Option   `toml:"options"`
-	Form        FormConfig `toml:"form"`
+	Name        string   `toml:"name"`
+	Description string   `toml:"description"`
+	Type        string   `toml:"type"`
+	Command     string   `toml:"command"`
+	Options     []Option `toml:"options"`
+	// OptionsCommand, when set on a "select" action, replaces the static Options
+	// list: it is a shell command (template-rendered like Command) run fresh each
+	// time the action is opened, and its stdout — one option per line — becomes
+	// the list to pick from. Options and OptionsCommand are mutually exclusive.
+	OptionsCommand string     `toml:"options_command"`
+	Form           FormConfig `toml:"form"`
 
 	// source is the file the action was loaded from, used only for error
 	// messages. It is not part of the on-disk format.
@@ -125,6 +137,9 @@ func (a Action) validate() error {
 	case TypeCommand, TypeForm:
 		// nothing extra to check
 	case TypeSelect:
+		if strings.TrimSpace(a.OptionsCommand) != "" {
+			break // options are resolved at picker time; nothing to check here
+		}
 		selectable := 0
 		for _, o := range a.Options {
 			if !o.isSeparator() {
@@ -132,12 +147,29 @@ func (a Action) validate() error {
 			}
 		}
 		if selectable == 0 {
-			return fmt.Errorf("action %q (%s): select actions need at least one selectable option (one with a label)", a.Name, a.source)
+			return fmt.Errorf("action %q (%s): select actions need at least one selectable option (one with a label) or an options_command", a.Name, a.source)
 		}
 	default:
 		return fmt.Errorf("action %q (%s): unknown type %q (want command, select, or form)", a.Name, a.source, a.Type)
 	}
 	return nil
+}
+
+// renderTemplate parses and executes a Go text/template against ctx, shared by
+// render (the action's Command) and resolveOptions (a select action's
+// OptionsCommand) so both get the same {{.Value}}/{{.WorkDir}}/{{opener}} etc.
+// vocabulary.
+func renderTemplate(name, tmplText string, ctx RunContext) (string, error) {
+	tmpl, err := template.New(name).Funcs(templateFuncs()).Parse(tmplText)
+	if err != nil {
+		return "", fmt.Errorf("parse template for %q: %w", name, err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, ctx); err != nil {
+		return "", fmt.Errorf("render template for %q: %w", name, err)
+	}
+	return buf.String(), nil
 }
 
 // render turns the action's command template into the final shell command. The
@@ -147,16 +179,10 @@ func (a Action) validate() error {
 // position the value precisely with {{.Value}} or just receive it as its last
 // argument.
 func (a Action) render(ctx RunContext) (string, error) {
-	tmpl, err := template.New(a.Name).Parse(a.Command)
+	cmdline, err := renderTemplate(a.Name, a.Command, ctx)
 	if err != nil {
-		return "", fmt.Errorf("parse command for %q: %w", a.Name, err)
+		return "", err
 	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, ctx); err != nil {
-		return "", fmt.Errorf("render command for %q: %w", a.Name, err)
-	}
-	cmdline := buf.String()
 
 	if ctx.Value != "" && !strings.Contains(a.Command, ".Value") {
 		cmdline += " " + shellQuote(ctx.Value)
@@ -164,17 +190,64 @@ func (a Action) render(ctx RunContext) (string, error) {
 	return cmdline, nil
 }
 
+// resolveOptions returns the option list a select action should show: the
+// static Options list, or — when OptionsCommand is set — the result of running
+// that command fresh through the shell right now and turning each non-blank
+// line of its stdout into an Option. A line is just "value" (used as both
+// label and value) unless it contains a tab, in which case it is
+// "value\tdescription" — the same label/value/description split a static
+// [[options]] entry has, so a dynamic list can flag things about each choice
+// (e.g. "already added") without that text ending up in the value the command
+// receives. This is what makes a select action's list reflect live state (e.g.
+// a directory listing) instead of a snapshot frozen into the TOML file.
+func (a Action) resolveOptions(ctx RunContext) ([]Option, error) {
+	if strings.TrimSpace(a.OptionsCommand) == "" {
+		return a.Options, nil
+	}
+
+	cmdline, err := renderTemplate(a.Name, a.OptionsCommand, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := shellCommand(cmdline)
+	if ctx.WorkDir != "" {
+		cmd.Dir = ctx.WorkDir
+	}
+	cmd.Env = append(os.Environ(), ctx.envPairs()...)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("options_command for %q: %w", a.Name, err)
+	}
+
+	var options []Option
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		value, desc, hasDesc := strings.Cut(line, "\t")
+		opt := Option{Label: value, Value: value}
+		if hasDesc {
+			opt.Description = strings.TrimSpace(desc)
+		}
+		options = append(options, opt)
+	}
+	return options, nil
+}
+
 // run renders and executes the action's command through the shell, in the
 // invoking pane's working directory and with the context exported as
-// HERDR_PLUS_* environment variables. Running through "sh -c" lets commands use
-// pipes, arguments, and full scripts.
+// HERDR_PLUS_* environment variables. Running through a shell (see
+// shellCommand: `sh -c`, or PowerShell on Windows) lets commands use pipes,
+// arguments, and full scripts.
 func (a Action) run(ctx RunContext) error {
 	cmdline, err := a.render(ctx)
 	if err != nil {
 		return err
 	}
 
-	cmd := exec.Command("sh", "-c", cmdline)
+	cmd := shellCommand(cmdline)
 	if ctx.WorkDir != "" {
 		cmd.Dir = ctx.WorkDir
 	}

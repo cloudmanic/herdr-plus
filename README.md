@@ -25,6 +25,13 @@ and **falls back to downloading the latest prebuilt release binary**, so it work
 `herdr plugin action list --plugin cloudmanic.herdr-plus`, and
 `herdr plugin uninstall cloudmanic.herdr-plus`.
 
+> **Windows** (herdr's Windows support is in preview): the plugin installs and
+> runs on Windows, but its build step compiles straight from source with the Go
+> toolchain — there's **no prebuilt-binary fallback** like the Linux/macOS `sh`
+> script has — so **Go must be on your `PATH`** to `herdr plugin install`. The
+> plugin talks to herdr over a named pipe there instead of a unix socket; it's
+> validated against the herdr Windows beta.
+
 **Local development:** build the binary and link your checkout in place:
 
 ```bash
@@ -69,7 +76,20 @@ Optional global settings live in `config.toml` in that same directory:
 ```toml
 [worktree]
 branch_prefix = "your-name/" # used verbatim; include your own trailing /
+
+[projects]
+placement = "zoomed" # overlay, popup, split, tab, or zoomed; default is zoomed
+
+[quick_actions]
+placement = "overlay" # overlay, popup, split, tab, or zoomed; default is overlay
 ```
+
+`placement` controls how herdr opens each picker — see herdr's
+[`plugin pane open --placement`](https://herdr.dev/docs/plugins/#panes) for what
+each value does. `popup` is a good fit for either picker if you want a small
+floating window that leaves your tiled layout untouched, rather than the default
+zoomed/overlay takeover. An empty or invalid value falls back to the built-in
+default and prints a warning to stderr rather than being passed through to herdr.
 
 ## Projects
 
@@ -112,6 +132,27 @@ name = "terminal"   # no command — just an empty shell
 Tabs open in file order. The first tab reuses the workspace's root tab; the rest
 are created behind it. A tab with no `command` is just an empty shell.
 
+### Opening by name (headless)
+
+The picker is interactive, but a project can also be opened directly — no browser,
+no fuzzy-picking — with the `open` subcommand:
+
+```sh
+herdr-plus open harbor-sysadmin
+```
+
+It loads the same templates, resolves the one whose `name` matches (exactly, or
+case-insensitively as a fallback), and builds its workspace through the **identical
+code path** the picker uses — so there is a single source of truth for the layout.
+A mistyped name fails with the list of available projects.
+
+Run it from **inside herdr** (a pane shell, a keybinding, another tool): like every
+herdr-plus command it reaches the running herdr over its socket, and it asks herdr
+where your project templates live, so it finds the same ones the picker shows. This
+is the scriptable entry point for spinning up a known workspace in one shot — handy
+for shell aliases, scripts, and AI agents. (To get `herdr-plus` on your `PATH`, see
+[Just the binary](#just-the-binary).)
+
 ### Grouping
 
 A project may set an optional `group` to cluster related projects under a heading
@@ -126,6 +167,8 @@ A tab can hold up to **4 panes**. Instead of a single `command`, give it
 `[[tabs.panes]]` entries. Each pane after the first sets `split` to `"down"`
 (stacked) or `"right"` (side by side) — how it splits off the previous pane. An
 omitted `split` defaults to `"down"`.
+A pane may also set `ratio` — how much of that split it takes, between `0` and
+`1`, leaving the rest to the pane it splits off. Omitted, the split is even.
 Each pane may also set an optional `label` — the name herdr shows on the pane
 border (when `show_agent_labels_on_pane_borders` is on). A blank or omitted
 `label` leaves the pane's default name untouched.
@@ -142,6 +185,7 @@ command = "php artisan serve"
 label = "Assets"
 command = "npm run dev"
 split = "down"
+ratio = 0.3
 ```
 
 A tab uses *either* `command` *or* `[[tabs.panes]]`, not both.

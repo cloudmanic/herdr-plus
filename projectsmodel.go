@@ -7,6 +7,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,6 +53,7 @@ type projectsMode int
 const (
 	modeList projectsMode = iota
 	modeBranch
+	modePath
 )
 
 // Projects-browser styles. These build on the shared palette in styles.go
@@ -63,25 +66,25 @@ var (
 	// detailBoxStyle frames the bottom bar that previews the highlighted project.
 	detailBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#A78BFA")).
+			BorderForeground(lipgloss.Color("5")).
 			Padding(0, 1)
 
 	// dirIconStyle / pathStyle render the "📁 <working dir>" line of the detail bar.
-	dirIconStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#A78BFA"))
-	pathStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#E5E7EB"))
-	tabNameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#C4B5FD"))
-	dotStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#4B5563"))
+	dirIconStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+	pathStyle    = lipgloss.NewStyle()
+	tabNameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
+	dotStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 
 	// Empty-state styles: a centered onboarding card.
 	cardStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#A78BFA")).
+			BorderForeground(lipgloss.Color("5")).
 			Padding(1, 3)
-	cardTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#A78BFA")).Bold(true)
-	bodyStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#E5E7EB"))
-	pathHintStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#F2A900")).Bold(true)
-	codeStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
-	linkStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#67E8F9")).Underline(true)
+	cardTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Bold(true)
+	bodyStyle      = lipgloss.NewStyle()
+	pathHintStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)
+	codeStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	linkStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Underline(true)
 )
 
 // projectsModel is the full-screen projects browser. It is a thin shell around
@@ -106,6 +109,13 @@ type projectsModel struct {
 	worktree     bool
 	branch       string
 	quitting     bool
+
+	// Path-prompt state for projects with working_dir = "{prompt}": the input,
+	// the last validation error, and whether the worktree branch prompt should
+	// follow once a directory is accepted (the ctrl+g flow).
+	pathInput       textinput.Model
+	pathErr         string
+	branchAfterPath bool
 }
 
 // ungroupedHeading labels the catch-all bucket for projects that declare no
@@ -123,12 +133,16 @@ func newProjectsModel(projects []Project, projectsDir, branchPrefix string) proj
 	branchInput := textinput.New()
 	branchInput.Prompt = ""
 	branchInput.Placeholder = "empty → generated name"
+	pathInput := textinput.New()
+	pathInput.Prompt = ""
+	pathInput.Placeholder = "~/path/to/project"
 	return projectsModel{
 		projects:     ordered,
 		list:         newFuzzyList("Type to filter projects…", items),
 		projectsDir:  projectsDir,
 		branchInput:  branchInput,
 		branchPrefix: branchPrefix,
+		pathInput:    pathInput,
 	}
 }
 
@@ -224,6 +238,9 @@ func (m projectsModel) Init() tea.Cmd {
 func (m projectsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.mode == modeBranch {
 		return m.updateBranch(msg)
+	}
+	if m.mode == modePath {
+		return m.updatePath(msg)
 	}
 
 	switch msg := msg.(type) {
@@ -334,8 +351,9 @@ func (m projectsModel) updateBranch(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // activateProject records the highlighted project as the chosen one and signals
-// a quit so its workspace gets built. Shared by the enter key and a left-click;
-// activating with nothing selectable is a no-op.
+// a quit so its workspace gets built — or, for a project that prompts for its
+// directory, switches into path-entry mode first. Shared by the enter key and a
+// left-click; activating with nothing selectable is a no-op.
 func (m projectsModel) activateProject() (tea.Model, tea.Cmd) {
 	idx := m.list.selectedIndex()
 	if idx < 0 {
@@ -343,12 +361,15 @@ func (m projectsModel) activateProject() (tea.Model, tea.Cmd) {
 	}
 	p := m.projects[idx]
 	m.chosen = &p
+	if p.promptsForDir() {
+		return m.promptProjectDir(false)
+	}
 	return m, tea.Quit
 }
 
-// promptWorktreeBranch switches the browser into its branch-entry mode for the
-// highlighted project, resetting the input to empty and focusing it. It is the
-// ctrl+g entry point; with nothing selectable it is a no-op.
+// promptWorktreeBranch is the ctrl+g entry point: it records the highlighted
+// project and switches into branch-entry mode — via the path prompt first when
+// the project asks for its directory. With nothing selectable it is a no-op.
 func (m projectsModel) promptWorktreeBranch() (tea.Model, tea.Cmd) {
 	idx := m.list.selectedIndex()
 	if idx < 0 {
@@ -356,6 +377,16 @@ func (m projectsModel) promptWorktreeBranch() (tea.Model, tea.Cmd) {
 	}
 	p := m.projects[idx]
 	m.chosen = &p
+	if p.promptsForDir() {
+		return m.promptProjectDir(true)
+	}
+	return m.enterBranchMode()
+}
+
+// enterBranchMode resets and focuses the branch input and switches the browser
+// into its branch-entry state. Shared by ctrl+g and the path prompt's
+// continue-to-branch step, so both arrive with a clean input.
+func (m projectsModel) enterBranchMode() (tea.Model, tea.Cmd) {
 	m.worktree = false
 	m.branch = ""
 	m.branchInput.SetValue("")
@@ -363,6 +394,84 @@ func (m projectsModel) promptWorktreeBranch() (tea.Model, tea.Cmd) {
 	m.branchInput.Placeholder = "empty → generated name"
 	cmd := m.branchInput.Focus()
 	m.mode = modeBranch
+	return m, cmd
+}
+
+// promptProjectDir switches the browser into path-entry mode for the already
+// chosen project (one with working_dir = "{prompt}"). branchAfter carries
+// whether the worktree branch prompt should follow once a directory is
+// accepted (the ctrl+g flow).
+func (m projectsModel) promptProjectDir(branchAfter bool) (tea.Model, tea.Cmd) {
+	m.branchAfterPath = branchAfter
+	m.pathErr = ""
+	m.pathInput.SetValue("")
+	cmd := m.pathInput.Focus()
+	m.mode = modePath
+	return m, cmd
+}
+
+// updatePath handles input while the project-directory prompt is showing (the
+// modePath state a "{prompt}" project enters when activated). Enter accepts the
+// typed path when it names an existing directory: the path is stamped into the
+// chosen project as its working directory and the project takes the
+// directory's basename as its name, so the workspace label says what it holds.
+// It then quits to open the workspace, or continues to the worktree branch
+// prompt in the ctrl+g flow. An invalid path shows an inline error and keeps
+// the prompt up. Esc backs out to the list, clearing the pending choice.
+func (m projectsModel) updatePath(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			if m.chosen == nil {
+				m.mode = modeList
+				return m, nil
+			}
+			if strings.TrimSpace(m.pathInput.Value()) == "" {
+				m.pathErr = "enter a project path"
+				return m, nil
+			}
+			dir, err := expandPath(m.pathInput.Value())
+			if err != nil {
+				m.pathErr = err.Error()
+				return m, nil
+			}
+			if abs, err := filepath.Abs(dir); err == nil {
+				dir = abs
+			}
+			if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+				m.pathErr = "not a directory: " + dir
+				return m, nil
+			}
+			m.chosen.WorkingDir = dir
+			m.chosen.Name = filepath.Base(dir)
+			if m.branchAfterPath {
+				return m.enterBranchMode()
+			}
+			return m, tea.Quit
+		case "esc":
+			m.mode = modeList
+			m.chosen = nil
+			m.pathErr = ""
+			m.branchAfterPath = false
+			return m, nil
+		}
+
+		var cmd tea.Cmd
+		m.pathInput, cmd = m.pathInput.Update(msg)
+		return m, cmd
+
+	case tea.MouseMsg:
+		return m, nil
+	}
+
+	var cmd tea.Cmd
+	m.pathInput, cmd = m.pathInput.Update(msg)
 	return m, cmd
 }
 
@@ -387,6 +496,9 @@ func (m projectsModel) View() string {
 	}
 	if m.mode == modeBranch {
 		return m.branchView(w, h)
+	}
+	if m.mode == modePath {
+		return m.pathView(w, h)
 	}
 	return m.browserView(w, h)
 }
@@ -422,13 +534,45 @@ func (m projectsModel) branchView(w, h int) string {
 	name, dir := "", ""
 	if m.chosen != nil {
 		name = m.chosen.Name
-		dir = m.chosen.expandedWorkingDir()
+		dir = m.chosen.displayWorkingDir()
 	}
 
 	body := nameStyle.Render(name) + "\n" +
 		dirIconStyle.Render("📁 ") + pathStyle.Render(truncate(dir, w-6)) + "\n\n" +
 		promptStyle.Render("❯ ") + m.branchInput.View()
 	footer := footerStyle.Render("  enter create · esc back")
+
+	top := header + "\n\n" + body
+	gap := h - lipgloss.Height(top) - lipgloss.Height(footer)
+	if gap < 1 {
+		gap = 1
+	}
+	return top + strings.Repeat("\n", gap) + footer
+}
+
+// pathView renders the project-directory prompt for a "{prompt}" project: the
+// chosen project's name above a single-line input for the path (~ and $VARS
+// expand like working_dir), plus any validation error from the last attempt.
+// It backs the modePath state.
+func (m projectsModel) pathView(w, h int) string {
+	header := headerBarStyle.Width(w).Render(projectsTitle)
+
+	name := ""
+	if m.chosen != nil {
+		name = m.chosen.Name
+	}
+
+	body := nameStyle.Render(name) + "\n" +
+		dirIconStyle.Render("📁 ") + pathStyle.Render("directory to open (~ and $VARS expand)") + "\n\n" +
+		promptStyle.Render("❯ ") + m.pathInput.View()
+	if m.pathErr != "" {
+		body += "\n" + errorStyle.Render(truncate(m.pathErr, w-4))
+	}
+	action := "open"
+	if m.branchAfterPath {
+		action = "continue"
+	}
+	footer := footerStyle.Render("  enter " + action + " · esc back")
 
 	top := header + "\n\n" + body
 	gap := h - lipgloss.Height(top) - lipgloss.Height(footer)
@@ -460,7 +604,11 @@ func (m projectsModel) detailBar(w int) string {
 		inner = 10
 	}
 
-	dirLine := dirIconStyle.Render("📁 ") + pathStyle.Render(truncate(p.expandedWorkingDir(), inner-3))
+	dirText := p.displayWorkingDir()
+	if p.promptsForDir() {
+		dirText = "asks for a path"
+	}
+	dirLine := dirIconStyle.Render("📁 ") + pathStyle.Render(truncate(dirText, inner-3))
 
 	labels := p.tabLabels()
 	styled := make([]string, len(labels))

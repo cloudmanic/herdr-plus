@@ -19,10 +19,17 @@ import (
 
 // launchProjects is the Projects action's entry point. herdr runs it server-side
 // (from the plugin action / keybinding), so it has no terminal of its own. It
-// asks herdr to open the projects browser as a zoomed plugin pane (the `picker`
-// entrypoint in herdr-plugin.toml). herdr creates and tears down that pane for
+// asks herdr to open the projects browser as a pane (the `picker` entrypoint in
+// herdr-plugin.toml) — zoomed by default, or the placement set by
+// [projects].placement in config.toml. herdr creates and tears down that pane for
 // us, so — unlike the old design — there is no throwaway workspace to manage.
 func launchProjects() {
+	cfg, err := loadPluginConfig()
+	if err != nil {
+		errExit(err)
+	}
+	placement := resolvePlacement(cfg.Projects.Placement, "zoomed")
+
 	// HERDR_BIN_PATH points at the running herdr binary; it is the portable way to
 	// call back into the CLI from a plugin command.
 	herdr := os.Getenv("HERDR_BIN_PATH")
@@ -31,9 +38,9 @@ func launchProjects() {
 	}
 
 	cmd := exec.Command(herdr, "plugin", "pane", "open",
-		"--plugin", "cloudmanic.herdr-plus",
-		"--entrypoint", "picker",
-		"--placement", "zoomed",
+		"--plugin", pluginID,
+		"--entrypoint", paneEntrypoint("picker"),
+		"--placement", placement,
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -97,7 +104,10 @@ func runProjectsUI() {
 // the user to it; the picker pane this was launched from is then torn down by
 // herdr when runProjectsUI exits.
 func openProject(client *herdrClient, p Project) error {
-	dir := p.expandedWorkingDir()
+	dir, err := p.expandedWorkingDir()
+	if err != nil {
+		return err
+	}
 	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 		return fmt.Errorf("working directory does not exist: %s", dir)
 	}
@@ -122,7 +132,11 @@ func openProject(client *herdrClient, p Project) error {
 func openProjectAsWorktree(client *herdrClient, p Project, branch string) error {
 	// filepath.Abs already returns an absolute path (or an error), so no separate
 	// IsAbs check is needed after it.
-	dir, err := filepath.Abs(p.expandedWorkingDir())
+	expanded, err := p.expandedWorkingDir()
+	if err != nil {
+		return fmt.Errorf("resolve working directory: %w", err)
+	}
+	dir, err := filepath.Abs(expanded)
 	if err != nil {
 		return fmt.Errorf("resolve working directory: %w", err)
 	}
@@ -186,7 +200,7 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane string, tabs []Projec
 		for j, pane := range t.effectivePanes() {
 			paneID := tabRoot
 			if j > 0 {
-				paneID, err = client.paneSplit(prev, pane.Split, false)
+				paneID, err = client.paneSplit(prev, pane.Split, pane.splitRatio(), false)
 				if err != nil {
 					return fmt.Errorf("split pane %d in tab %q: %w", j+1, t.Name, err)
 				}

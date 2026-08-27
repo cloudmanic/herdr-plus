@@ -15,18 +15,50 @@
 id = "cloudmanic.herdr-plus"
 name = "Herdr Plus"
 # Kept in sync with internal/version/version.go by .github/workflows/release.yml.
-version = "0.1.16"
+version = "0.1.20"
 min_herdr_version = "0.7.0"
 description = "An extension for herdr — a collection of tools that make it better. Projects: fuzzy-pick a declarative template to spin up a whole workspace — every tab, pane, and startup command. Quick Actions: a fuzzy launcher for one-off scripts, run in the directory you launched from."
-platforms = ["linux", "macos"]
+# Windows is supported under herdr's Windows beta (a manifest platform in
+# preview). Per-command `platforms` below override this list so each OS runs the
+# right build step and the right binary name (herdr-plus vs herdr-plus.exe).
+platforms = ["linux", "macos", "windows"]
 
 # Produce the binary at install time. herdr runs this once, after you confirm a
-# GitHub install and before registering the plugin. The script prefers a local Go
-# toolchain (an exact build of the cloned source) and falls back to downloading
-# the latest prebuilt release binary, so installing works with or without Go.
-# Either way the result is ./bin/herdr-plus, which the entry points below invoke.
+# GitHub install and before registering the plugin.
+#
+# Unix: the sh script prefers a local Go toolchain (an exact build of the cloned
+# source) and falls back to downloading the latest prebuilt release binary, so
+# installing works with or without Go. The result is ./bin/herdr-plus.
 [[build]]
+platforms = ["linux", "macos"]
 command = ["sh", "scripts/build.sh"]
+
+# Windows: no POSIX `sh`, so build straight from source with the Go toolchain.
+# The result is ./bin/herdr-plus.exe. Installing via `herdr plugin install` on
+# Windows therefore needs Go on PATH; for a checkout you can also build once
+# (`go build -o bin/herdr-plus.exe .`) and `herdr plugin link .`.
+[[build]]
+platforms = ["windows"]
+command = ["go", "build", "-o", "bin/herdr-plus.exe", "."]
+
+# Every entry point below is declared twice: a unix entry (platforms = linux,
+# macos → ./bin/herdr-plus) and a windows twin (platforms = windows). Two entries
+# are unavoidable — herdr requires a unique id per action/pane, and the two OSes
+# need different commands — so the windows twins carry a `-windows` id suffix. The
+# Go code that opens a pane picks the right entrypoint at runtime via
+# paneEntrypoint() (see shell.go), so nothing is hardcoded per-OS.
+#
+# The windows command is `powershell ... & .\bin\herdr-plus.exe <sub>`, not the
+# bare `.\bin\herdr-plus.exe`, for two Windows-specific reasons proven
+# empirically against the herdr Windows beta:
+#   1. Relative exe resolution. herdr runs the command with cwd = plugin root, but
+#      Windows' CreateProcessW resolves a *relative* application path against
+#      herdr's own cwd, not the child cwd it sets — so `.\bin\herdr-plus.exe`
+#      spawned directly fails with os error 3. Going through powershell (found on
+#      PATH) fixes this: powershell's cwd is the plugin root, and its `&` operator
+#      resolves `.\bin\herdr-plus.exe` from there.
+#   2. Extension. Windows cannot spawn an extensionless PE by its bare path
+#      (CreateProcessW appends .exe), so the binary must be named herdr-plus.exe.
 
 # projects — the flagship action. Opens a full-screen browser to fuzzy-pick a
 # project (a declarative set of tabs/panes from ~/.config/herdr-plus/projects/)
@@ -35,7 +67,14 @@ command = ["sh", "scripts/build.sh"]
 [[actions]]
 id = "projects"
 title = "Herdr Plus: Projects"
+platforms = ["linux", "macos"]
 command = ["./bin/herdr-plus", "projects"]
+
+[[actions]]
+id = "projects-windows"
+title = "Herdr Plus: Projects"
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-NonInteractive", "-Command", "& .\\bin\\herdr-plus.exe projects"]
 
 # picker — the projects browser as a herdr-managed pane (no throwaway workspace).
 # Opened by the projects action via `herdr plugin pane open`; herdr gives it a
@@ -44,7 +83,17 @@ command = ["./bin/herdr-plus", "projects"]
 id = "picker"
 title = "Herdr Plus: Projects"
 placement = "zoomed"
+platforms = ["linux", "macos"]
 command = ["./bin/herdr-plus", "projects-ui"]
+
+[[panes]]
+id = "picker-windows"
+title = "Herdr Plus: Projects"
+placement = "zoomed"
+platforms = ["windows"]
+# Panes deliberately omit -NonInteractive (which actions/events keep): this hosts
+# an interactive bubbletea TUI, and -NonInteractive would break its input.
+command = ["powershell", "-NoProfile", "-Command", "& .\\bin\\herdr-plus.exe projects-ui"]
 
 # quick-actions — a fuzzy launcher for one-off actions/scripts (command, select,
 # or form), loaded from ~/.config/herdr-plus/quick-actions/ (plus a repo's own
@@ -53,7 +102,14 @@ command = ["./bin/herdr-plus", "projects-ui"]
 [[actions]]
 id = "quick-actions"
 title = "Herdr Plus: Quick Actions"
+platforms = ["linux", "macos"]
 command = ["./bin/herdr-plus", "quick-actions"]
+
+[[actions]]
+id = "quick-actions-windows"
+title = "Herdr Plus: Quick Actions"
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-NonInteractive", "-Command", "& .\\bin\\herdr-plus.exe quick-actions"]
 
 # quick-actions-picker — the action picker as a herdr-managed overlay pane. The
 # quick-actions action opens it (passing the launch context), and herdr restores
@@ -62,7 +118,16 @@ command = ["./bin/herdr-plus", "quick-actions"]
 id = "quick-actions-picker"
 title = "Quick Actions"
 placement = "overlay"
+platforms = ["linux", "macos"]
 command = ["./bin/herdr-plus", "quick-actions-ui"]
+
+[[panes]]
+id = "quick-actions-picker-windows"
+title = "Quick Actions"
+placement = "overlay"
+platforms = ["windows"]
+# Omits -NonInteractive on purpose — interactive TUI pane; see picker-windows.
+command = ["powershell", "-NoProfile", "-Command", "& .\\bin\\herdr-plus.exe quick-actions-ui"]
 
 # ping — a smoke-test action that proves the plugin loop end to end: it talks to
 # herdr over the socket and prints the focused pane/workspace. Its output is
@@ -70,7 +135,14 @@ command = ["./bin/herdr-plus", "quick-actions-ui"]
 [[actions]]
 id = "ping"
 title = "Herdr Plus: ping"
+platforms = ["linux", "macos"]
 command = ["./bin/herdr-plus", "ping"]
+
+[[actions]]
+id = "ping-windows"
+title = "Herdr Plus: ping"
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-NonInteractive", "-Command", "& .\\bin\\herdr-plus.exe ping"]
 
 # worktree.created / worktree.opened — herdr fires worktree.created when it
 # creates a new git worktree and worktree.opened when it opens an existing one
@@ -84,8 +156,20 @@ command = ["./bin/herdr-plus", "ping"]
 # it by hand. Output is captured in the plugin log.
 [[events]]
 on = "worktree.created"
+platforms = ["linux", "macos"]
+command = ["./bin/herdr-plus", "on-worktree"]
+
+[[events]]
+on = "worktree.created"
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-NonInteractive", "-Command", "& .\\bin\\herdr-plus.exe on-worktree"]
+
+[[events]]
+on = "worktree.opened"
+platforms = ["linux", "macos"]
 command = ["./bin/herdr-plus", "on-worktree"]
 
 [[events]]
 on = "worktree.opened"
-command = ["./bin/herdr-plus", "on-worktree"]
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-NonInteractive", "-Command", "& .\\bin\\herdr-plus.exe on-worktree"]
