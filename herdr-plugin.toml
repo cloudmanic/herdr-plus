@@ -15,7 +15,7 @@
 id = "cloudmanic.herdr-plus"
 name = "Herdr Plus"
 # Kept in sync with internal/version/version.go by .github/workflows/release.yml.
-version = "0.1.21"
+version = "0.1.22"
 min_herdr_version = "0.7.0"
 description = "An extension for herdr — a collection of tools that make it better. Projects: fuzzy-pick a declarative template to spin up a whole workspace — every tab, pane, and startup command. Quick Actions: a fuzzy launcher for one-off scripts, run in the directory you launched from."
 # Windows is supported under herdr's Windows beta (a manifest platform in
