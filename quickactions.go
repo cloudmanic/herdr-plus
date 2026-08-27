@@ -14,9 +14,10 @@ import (
 // launchQuickActions is the Quick Actions action's entry point. herdr runs it
 // server-side (from the plugin action / keybinding), so it has no terminal of its
 // own. It captures the focused pane's context (working directory, workspace) from
-// the env herdr injects, then asks herdr to open the action picker as an overlay
-// pane — passing the encoded context along so the chosen command runs in the
-// directory you launched from, not the picker's. herdr creates the overlay and,
+// the env herdr injects, then asks herdr to open the action picker as a pane —
+// overlay by default, or the placement set by [quick_actions].placement in
+// config.toml — passing the encoded context along so the chosen command runs in
+// the directory you launched from, not the picker's. herdr creates the pane and,
 // when the picker exits, tears it down and restores your previous focus.
 func launchQuickActions() {
 	ctx := contextFromPluginEnv()
@@ -24,6 +25,12 @@ func launchQuickActions() {
 	if err != nil {
 		errExit("could not encode run context:", err)
 	}
+
+	cfg, err := loadPluginConfig()
+	if err != nil {
+		errExit(err)
+	}
+	placement := resolvePlacement(cfg.QuickActions.Placement, "overlay")
 
 	// HERDR_BIN_PATH points at the running herdr binary; it is the portable way to
 	// call back into the CLI from a plugin command.
@@ -36,7 +43,7 @@ func launchQuickActions() {
 		"plugin", "pane", "open",
 		"--plugin", pluginID,
 		"--entrypoint", paneEntrypoint("quick-actions-picker"),
-		"--placement", "overlay",
+		"--placement", placement,
 		// Hand the launch context to the picker as a single shell-safe env var.
 		"--env", "HERDR_PLUS_CTX=" + enc,
 	}

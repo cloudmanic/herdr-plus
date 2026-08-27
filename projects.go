@@ -19,10 +19,17 @@ import (
 
 // launchProjects is the Projects action's entry point. herdr runs it server-side
 // (from the plugin action / keybinding), so it has no terminal of its own. It
-// asks herdr to open the projects browser as a zoomed plugin pane (the `picker`
-// entrypoint in herdr-plugin.toml). herdr creates and tears down that pane for
+// asks herdr to open the projects browser as a pane (the `picker` entrypoint in
+// herdr-plugin.toml) — zoomed by default, or the placement set by
+// [projects].placement in config.toml. herdr creates and tears down that pane for
 // us, so — unlike the old design — there is no throwaway workspace to manage.
 func launchProjects() {
+	cfg, err := loadPluginConfig()
+	if err != nil {
+		errExit(err)
+	}
+	placement := resolvePlacement(cfg.Projects.Placement, "zoomed")
+
 	// HERDR_BIN_PATH points at the running herdr binary; it is the portable way to
 	// call back into the CLI from a plugin command.
 	herdr := os.Getenv("HERDR_BIN_PATH")
@@ -33,7 +40,7 @@ func launchProjects() {
 	cmd := exec.Command(herdr, "plugin", "pane", "open",
 		"--plugin", pluginID,
 		"--entrypoint", paneEntrypoint("picker"),
-		"--placement", "zoomed",
+		"--placement", placement,
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
