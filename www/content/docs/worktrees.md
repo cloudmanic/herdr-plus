@@ -91,9 +91,13 @@ command = "./scripts/release.sh"
 
 The `[[tabs]]` format is identical to a project's. A tab can run a single
 `command`, or hold up to four panes via `[[tabs.panes]]` with `split = "down"` or
-`"right"` and an optional `ratio`. See
+`"right"` and an optional `ratio`, and either can set a `working_dir`. See
 [Split panes within a tab](../projects/#split-panes-within-a-tab) for the full
 vocabulary.
+
+A layout has no `working_dir` of its own — the worktree's checkout is the root — so
+a tab's relative `working_dir` is resolved against the worktree, which is what makes
+one layout work for every worktree of the repo.
 
 ## When nothing matches
 

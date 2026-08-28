@@ -112,8 +112,9 @@ func (c *herdrClient) worktreeCreate(cwd, branch string, focus bool) error {
 
 // paneSplitParams builds the pane.split payload. A zero ratio is omitted so herdr
 // applies its own even split; any other value is the share of the space the target
-// pane keeps.
-func paneSplitParams(targetPaneID, direction string, ratio float64, focus bool) map[string]any {
+// pane keeps. An empty cwd is omitted too, which leaves the new pane inheriting
+// the directory of the pane it was split from.
+func paneSplitParams(targetPaneID, direction string, ratio float64, cwd string, focus bool) map[string]any {
 	params := map[string]any{
 		"target_pane_id": targetPaneID,
 		"direction":      direction,
@@ -122,21 +123,25 @@ func paneSplitParams(targetPaneID, direction string, ratio float64, focus bool) 
 	if ratio > 0 {
 		params["ratio"] = ratio
 	}
+	if strings.TrimSpace(cwd) != "" {
+		params["cwd"] = cwd
+	}
 	return params
 }
 
 // paneSplit splits the target pane in the given direction ("down" for a new pane
 // beneath it, "right" for one beside it), creating a new pane, and returns the
 // new pane's id. ratio is the share of the space the target pane keeps, zero for
-// an even split. When focus is true the new pane becomes the focused pane (the
+// an even split. cwd is the directory the new pane starts in; empty inherits the
+// split pane's. When focus is true the new pane becomes the focused pane (the
 // socket API does not focus new panes by default).
-func (c *herdrClient) paneSplit(targetPaneID, direction string, ratio float64, focus bool) (string, error) {
+func (c *herdrClient) paneSplit(targetPaneID, direction string, ratio float64, cwd string, focus bool) (string, error) {
 	var out struct {
 		Pane struct {
 			PaneID string `json:"pane_id"`
 		} `json:"pane"`
 	}
-	err := c.call("pane.split", paneSplitParams(targetPaneID, direction, ratio, focus), &out)
+	err := c.call("pane.split", paneSplitParams(targetPaneID, direction, ratio, cwd, focus), &out)
 	if err != nil {
 		return "", err
 	}
@@ -428,11 +433,27 @@ func (c *herdrClient) workspaceCreate(cwd, label string, focus bool) (workspaceI
 	return out.Workspace.WorkspaceID, out.Tab.TabID, out.RootPane.PaneID, nil
 }
 
+// tabCreateParams builds the tab.create payload. An empty cwd is omitted so the
+// tab's root pane inherits the workspace's directory, which is what a tab that
+// declares no working_dir of its own should do.
+func tabCreateParams(workspaceID, label, cwd string, focus bool) map[string]any {
+	params := map[string]any{
+		"workspace_id": workspaceID,
+		"label":        label,
+		"focus":        focus,
+	}
+	if strings.TrimSpace(cwd) != "" {
+		params["cwd"] = cwd
+	}
+	return params
+}
+
 // tabCreate adds a tab to an existing workspace and returns the new tab's id and
-// its root pane's id. focus controls whether the new tab is brought to the front
-// — a project's later tabs are created with focus=false so the first tab stays
-// active while the rest spin up behind it.
-func (c *herdrClient) tabCreate(workspaceID, label string, focus bool) (tabID, paneID string, err error) {
+// its root pane's id. cwd is the directory the tab's root pane starts in; empty
+// inherits the workspace's. focus controls whether the new tab is brought to the
+// front — a project's later tabs are created with focus=false so the first tab
+// stays active while the rest spin up behind it.
+func (c *herdrClient) tabCreate(workspaceID, label, cwd string, focus bool) (tabID, paneID string, err error) {
 	var out struct {
 		Tab struct {
 			TabID string `json:"tab_id"`
@@ -441,11 +462,7 @@ func (c *herdrClient) tabCreate(workspaceID, label string, focus bool) (tabID, p
 			PaneID string `json:"pane_id"`
 		} `json:"root_pane"`
 	}
-	err = c.call("tab.create", map[string]any{
-		"workspace_id": workspaceID,
-		"label":        label,
-		"focus":        focus,
-	}, &out)
+	err = c.call("tab.create", tabCreateParams(workspaceID, label, cwd, focus), &out)
 	if err != nil {
 		return "", "", err
 	}
@@ -458,6 +475,16 @@ func (c *herdrClient) tabRename(tabID, label string) error {
 	return c.call("tab.rename", map[string]any{
 		"tab_id": tabID,
 		"label":  label,
+	}, nil)
+}
+
+// tabClose removes a tab and everything in it. Its only caller replaces a
+// workspace's root tab with one rooted at a different directory: herdr has no way
+// to change a tab's directory after the fact, so the tab is rebuilt and the
+// original closed.
+func (c *herdrClient) tabClose(tabID string) error {
+	return c.call("tab.close", map[string]any{
+		"tab_id": tabID,
 	}, nil)
 }
 

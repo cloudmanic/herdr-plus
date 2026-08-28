@@ -55,7 +55,7 @@ func TestPaneSplitParams(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := paneSplitParams("w1:p1", SplitRight, c.ratio, false)
+			got := paneSplitParams("w1:p1", SplitRight, c.ratio, "", false)
 			if got["target_pane_id"] != "w1:p1" {
 				t.Fatalf("target_pane_id = %v, want w1:p1", got["target_pane_id"])
 			}
@@ -73,5 +73,38 @@ func TestPaneSplitParams(t *testing.T) {
 				t.Fatalf("ratio = %v, want %v", ratio, c.ratio)
 			}
 		})
+	}
+}
+
+// TestPaneSplitParamsCwd confirms a pane's directory rides along only when it has
+// one: an empty cwd is left out of the payload so the new pane inherits the
+// directory of the pane it was split from, which is what a config that says
+// nothing about directories has always done.
+func TestPaneSplitParamsCwd(t *testing.T) {
+	if _, ok := paneSplitParams("w1:p1", SplitDown, 0, "", false)["cwd"]; ok {
+		t.Fatal("an empty cwd should be omitted from the pane.split payload")
+	}
+	if _, ok := paneSplitParams("w1:p1", SplitDown, 0, "   ", false)["cwd"]; ok {
+		t.Fatal("a blank cwd should be omitted from the pane.split payload")
+	}
+	got := paneSplitParams("w1:p1", SplitDown, 0, "/src/web", false)
+	if got["cwd"] != "/src/web" {
+		t.Fatalf("cwd = %v, want /src/web", got["cwd"])
+	}
+}
+
+// TestTabCreateParams confirms the tab.create contract: the workspace, label and
+// focus always ride along, and a directory is sent only when the tab has one so
+// an unset working_dir keeps inheriting the workspace's.
+func TestTabCreateParams(t *testing.T) {
+	got := tabCreateParams("w1", "editor", "", true)
+	if got["workspace_id"] != "w1" || got["label"] != "editor" || got["focus"] != true {
+		t.Fatalf("params = %v, want the workspace, label and focus carried through", got)
+	}
+	if _, ok := got["cwd"]; ok {
+		t.Fatal("an empty cwd should be omitted from the tab.create payload")
+	}
+	if got := tabCreateParams("w1", "editor", "/src/api", false); got["cwd"] != "/src/api" {
+		t.Fatalf("cwd = %v, want /src/api", got["cwd"])
 	}
 }

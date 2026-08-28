@@ -32,12 +32,14 @@ const maxPanesPerTab = 4
 // tab — "down" or "right"; it is ignored for the first pane (the tab's root) and
 // defaults to "down" when omitted. Ratio is the share of the split this pane
 // takes, between 0 and 1; omitting it splits the space evenly, and it is ignored
-// for the first pane, which has nothing to split off.
+// for the first pane, which has nothing to split off. WorkingDir overrides the
+// directory the pane starts in, falling back to its tab's and then the project's.
 type ProjectPane struct {
-	Command string  `toml:"command"`
-	Split   string  `toml:"split"`
-	Label   string  `toml:"label"`
-	Ratio   float64 `toml:"ratio"`
+	Command    string  `toml:"command"`
+	Split      string  `toml:"split"`
+	Label      string  `toml:"label"`
+	Ratio      float64 `toml:"ratio"`
+	WorkingDir string  `toml:"working_dir"`
 }
 
 // splitRatio translates the pane's authored ratio — the share of the split it
@@ -60,19 +62,29 @@ type ProjectTab struct {
 	Name    string        `toml:"name"`
 	Command string        `toml:"command"`
 	Panes   []ProjectPane `toml:"panes"`
+
+	// WorkingDir overrides the directory this tab's panes start in, falling back
+	// to the project's working_dir when empty. A monorepo's frontend and backend
+	// tabs can each sit in their own subdirectory this way.
+	WorkingDir string `toml:"working_dir"`
 }
 
 // effectivePanes returns the tab's panes in creation order, normalizing the two
 // authoring forms into one list. The first pane is the tab's root (its split and
 // ratio are cleared); each later pane carries the direction it splits off the
-// previous one, defaulting to "down".
+// previous one, defaulting to "down". A pane that sets no working_dir of its own
+// inherits the tab's, so the whole tab lands in one directory unless a pane says
+// otherwise.
 func (t ProjectTab) effectivePanes() []ProjectPane {
 	if len(t.Panes) == 0 {
-		return []ProjectPane{{Command: t.Command}}
+		return []ProjectPane{{Command: t.Command, WorkingDir: t.WorkingDir}}
 	}
 	panes := make([]ProjectPane, len(t.Panes))
 	for i, p := range t.Panes {
 		panes[i] = p
+		if strings.TrimSpace(panes[i].WorkingDir) == "" {
+			panes[i].WorkingDir = t.WorkingDir
+		}
 		if i == 0 {
 			panes[i].Split = ""
 			panes[i].Ratio = 0
@@ -285,6 +297,29 @@ func expandPath(s string) (string, error) {
 		dir = filepath.Join(home, dir[2:])
 	}
 	return filepath.Clean(os.ExpandEnv(dir)), nil
+}
+
+// resolveNestedDir resolves a tab's or pane's working_dir against the workspace
+// root. An empty value returns "", meaning "say nothing and inherit" — herdr then
+// starts the tab or pane in the workspace's own directory, which is the behavior
+// a config without the key has always had.
+//
+// A relative path is joined onto root rather than left for herdr to interpret
+// against its own process directory, which makes the common monorepo shape —
+// working_dir = "web" under a project rooted at the repo — mean what it looks
+// like. ~ and $VARS expand exactly as they do in a project's working_dir.
+func resolveNestedDir(raw, root string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", nil
+	}
+	dir, err := expandPath(raw)
+	if err != nil {
+		return "", fmt.Errorf("resolve working_dir %q: %w", raw, err)
+	}
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(root, dir)
+	}
+	return dir, nil
 }
 
 // displayWorkingDir resolves the working directory for UI contexts that have no

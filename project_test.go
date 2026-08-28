@@ -320,3 +320,125 @@ func TestExpandedWorkingDir(t *testing.T) {
 		}
 	}
 }
+
+// TestEffectivePanesInheritsTabWorkingDir confirms the directory fallback inside a
+// tab: a pane with no working_dir of its own takes the tab's, a pane that sets one
+// keeps it, and the single-command shorthand carries the tab's directory too.
+func TestEffectivePanesInheritsTabWorkingDir(t *testing.T) {
+	split := ProjectTab{Name: "app", WorkingDir: "~/src/web", Panes: []ProjectPane{
+		{Command: "npm run dev"},
+		{Command: "npm test", Split: SplitDown},
+		{Command: "psql", Split: SplitRight, WorkingDir: "~/src/db"},
+	}}.effectivePanes()
+
+	if split[0].WorkingDir != "~/src/web" || split[1].WorkingDir != "~/src/web" {
+		t.Fatalf("panes 1-2 dirs = %q/%q, want the tab's ~/src/web", split[0].WorkingDir, split[1].WorkingDir)
+	}
+	if split[2].WorkingDir != "~/src/db" {
+		t.Fatalf("pane 3 dir = %q, want its own ~/src/db", split[2].WorkingDir)
+	}
+
+	// The single-command shorthand is one pane, and it belongs in the tab's dir.
+	shorthand := ProjectTab{Name: "api", Command: "make run", WorkingDir: "~/src/api"}.effectivePanes()
+	if len(shorthand) != 1 || shorthand[0].WorkingDir != "~/src/api" {
+		t.Fatalf("shorthand panes = %+v, want one pane in ~/src/api", shorthand)
+	}
+
+	// A tab that says nothing about directories still produces empty ones, so the
+	// workspace's own directory is inherited exactly as before.
+	plain := ProjectTab{Name: "shell"}.effectivePanes()
+	if plain[0].WorkingDir != "" {
+		t.Fatalf("plain tab pane dir = %q, want empty", plain[0].WorkingDir)
+	}
+}
+
+// TestResolveNestedDir covers how a tab or pane's working_dir is resolved against
+// the workspace root: an empty value stays empty (inherit), a relative one is
+// joined onto the root so "web" means the repo's web/ directory, and an absolute
+// or ~-rooted one is used as written.
+func TestResolveNestedDir(t *testing.T) {
+	root := t.TempDir()
+
+	if got, err := resolveNestedDir("", root); err != nil || got != "" {
+		t.Fatalf("resolveNestedDir(\"\") = %q, %v; want an empty dir and no error", got, err)
+	}
+	if got, err := resolveNestedDir("   ", root); err != nil || got != "" {
+		t.Fatalf("resolveNestedDir(blank) = %q, %v; want an empty dir and no error", got, err)
+	}
+
+	got, err := resolveNestedDir("web", root)
+	if err != nil {
+		t.Fatalf("resolveNestedDir: %v", err)
+	}
+	if want := filepath.Join(root, "web"); got != want {
+		t.Fatalf("relative dir = %q, want %q", got, want)
+	}
+
+	abs := filepath.Join(root, "api")
+	if got, err := resolveNestedDir(abs, root); err != nil || got != abs {
+		t.Fatalf("absolute dir = %q, %v; want %q unchanged", got, err, abs)
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory on this machine")
+	}
+	if got, err := resolveNestedDir("~/src", root); err != nil || got != filepath.Join(home, "src") {
+		t.Fatalf("~-rooted dir = %q, %v; want %q", got, err, filepath.Join(home, "src"))
+	}
+}
+
+// TestResolvePaneDirs confirms the pre-flight pass layoutTabs runs before it
+// touches a workspace: it resolves each pane's directory in the order the tabs are
+// laid out, leaves an unset one empty so the workspace's is inherited, and refuses
+// a directory that does not exist rather than building half a workspace.
+func TestResolvePaneDirs(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "web"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	tabs := []ProjectTab{
+		{Name: "shell"},
+		{Name: "app", WorkingDir: "web", Panes: []ProjectPane{{Command: "a"}, {Command: "b", Split: SplitDown}}},
+	}
+	dirs, err := resolvePaneDirs(root, tabs)
+	if err != nil {
+		t.Fatalf("resolvePaneDirs: %v", err)
+	}
+	if len(dirs) != 2 || len(dirs[0]) != 1 || len(dirs[1]) != 2 {
+		t.Fatalf("dirs shape = %v, want one entry per pane per tab", dirs)
+	}
+	if dirs[0][0] != root {
+		t.Fatalf("tab with no working_dir = %q, want the workspace root %q", dirs[0][0], root)
+	}
+	web := filepath.Join(root, "web")
+	if dirs[1][0] != web || dirs[1][1] != web {
+		t.Fatalf("tab dirs = %q/%q, want both %q", dirs[1][0], dirs[1][1], web)
+	}
+
+	// With no root to anchor to, an undeclared directory stays empty so herdr's own
+	// inheritance keeps working — the behavior every config had before this key.
+	rootless, err := resolvePaneDirs("", []ProjectTab{{Name: "shell"}})
+	if err != nil {
+		t.Fatalf("resolvePaneDirs with no root: %v", err)
+	}
+	if rootless[0][0] != "" {
+		t.Fatalf("dir with no root = %q, want empty", rootless[0][0])
+	}
+
+	// A directory that is not there fails up front, naming the tab and pane.
+	missing := []ProjectTab{{Name: "api", WorkingDir: "nope"}}
+	if _, err := resolvePaneDirs(root, missing); err == nil {
+		t.Fatal("expected a missing working_dir to be rejected")
+	}
+
+	// So does a path that exists but is a file rather than a directory.
+	file := filepath.Join(root, "README")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, err := resolvePaneDirs(root, []ProjectTab{{Name: "api", WorkingDir: "README"}}); err == nil {
+		t.Fatal("expected a file working_dir to be rejected")
+	}
+}

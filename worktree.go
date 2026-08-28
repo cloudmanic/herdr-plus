@@ -286,7 +286,7 @@ func runOnWorktreeEvent(_ []string) {
 		return
 	}
 
-	if err := layoutTabs(client, ev.WorkspaceID, ev.RootTabID, ev.RootPaneID, layout.Tabs); err != nil {
+	if err := layoutTabs(client, ev.WorkspaceID, ev.RootTabID, ev.RootPaneID, ev.CheckoutPath, layout.Tabs); err != nil {
 		errExit("apply worktree layout:", err)
 	}
 

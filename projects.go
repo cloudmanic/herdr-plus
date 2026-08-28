@@ -112,13 +112,21 @@ func openProject(client *herdrClient, p Project) error {
 		return fmt.Errorf("working directory does not exist: %s", dir)
 	}
 
+	// Check every tab and pane directory now, while backing out still costs
+	// nothing. layoutTabs would catch the same problem, but only after the
+	// workspace exists — leaving the user an empty workspace to close by hand.
+	if err := checkTabDirs(dir, p.Tabs); err != nil {
+		return err
+	}
+
 	ws, rootTab, rootPane, err := client.workspaceCreate(dir, p.Name, true)
 	if err != nil {
 		return fmt.Errorf("create workspace: %w", err)
 	}
 
-	// Lay the project's tabs into the new workspace.
-	return layoutTabs(client, ws, rootTab, rootPane, p.Tabs)
+	// Lay the project's tabs into the new workspace. dir anchors any per-tab or
+	// per-pane working_dir written relative to the project.
+	return layoutTabs(client, ws, rootTab, rootPane, dir, p.Tabs)
 }
 
 // openProjectAsWorktree creates a git worktree from the project's working
@@ -167,14 +175,66 @@ func isInsideGitWorkTree(dir string) bool {
 	return strings.TrimSpace(string(out)) == "true"
 }
 
+// resolvePaneDirs resolves the directory every pane of every tab should start in,
+// returning a table indexed the same way layoutTabs walks them: dirs[i][j] is tab
+// i pane j. A pane that declares no working_dir of its own gets root, the
+// workspace's own directory.
+//
+// Every pane gets an explicit directory rather than being left to inherit one:
+// herdr starts a new tab in the directory of the tab that was active when it was
+// created, not the workspace's, so a tab declaring no working_dir would otherwise
+// drift into whichever directory the tab before it happened to use. Naming the
+// directory every time makes each tab depend only on its own config.
+//
+// It runs as one pass up front so a mistyped path fails before any tab is
+// created, rather than stranding the user with half a workspace. Each resolved
+// directory must already exist — herdr would either error or silently start
+// somewhere unexpected, and a clear message naming the tab is far more useful.
+func resolvePaneDirs(root string, tabs []ProjectTab) ([][]string, error) {
+	dirs := make([][]string, len(tabs))
+	for i, t := range tabs {
+		panes := t.effectivePanes()
+		dirs[i] = make([]string, len(panes))
+		for j, pane := range panes {
+			dir, err := resolveNestedDir(pane.WorkingDir, root)
+			if err != nil {
+				return nil, fmt.Errorf("tab %q pane %d: %w", t.Name, j+1, err)
+			}
+			if dir == "" {
+				// Nothing declared, so the workspace's own directory it is. A caller
+				// with no root to offer passes "", which omits the key and leaves
+				// herdr's inheritance in charge exactly as it was before.
+				dirs[i][j] = root
+				continue
+			}
+			if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+				return nil, fmt.Errorf("tab %q pane %d: working directory does not exist: %s", t.Name, j+1, dir)
+			}
+			dirs[i][j] = dir
+		}
+	}
+	return dirs, nil
+}
+
+// checkTabDirs reports whether every tab and pane directory in tabs resolves and
+// exists, without creating anything. It lets a caller fail before committing to a
+// workspace it would then have to tear down.
+func checkTabDirs(root string, tabs []ProjectTab) error {
+	_, err := resolvePaneDirs(root, tabs)
+	return err
+}
+
 // layoutTabs lays an ordered list of tabs — each with its panes and optional
 // startup commands — into an existing workspace whose root tab and root pane are
-// rootTab and rootPane. tab[0] reuses the root tab (renamed) and root pane; each
-// later tab is created without focus so the first stays in front while the rest
-// spin up. Within a tab the first pane is the tab's root and each later pane is
-// split off the previous one. Every startup command is run last, once all panes
-// exist, paced to its freshly spawned shell.
-func layoutTabs(client *herdrClient, ws, rootTab, rootPane string, tabs []ProjectTab) error {
+// rootTab and rootPane, and whose own directory is root. tab[0] reuses the root
+// tab (renamed) and root pane; each later tab is created without focus so the
+// first stays in front while the rest spin up. Within a tab the first pane is the
+// tab's root and each later pane is split off the previous one. Every startup
+// command is run last, once all panes exist, paced to its freshly spawned shell.
+//
+// root anchors the optional per-tab and per-pane working_dir: a relative one is
+// resolved against it, and a tab or pane that declares none simply inherits it.
+func layoutTabs(client *herdrClient, ws, rootTab, rootPane, root string, tabs []ProjectTab) error {
 	// pendingRun pairs a pane with the command it should run once all panes exist.
 	type pendingRun struct {
 		pane    string
@@ -183,14 +243,34 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane string, tabs []Projec
 	var runs []pendingRun
 	var err error
 
+	// Resolve every pane's directory before touching the workspace. A bad path
+	// found halfway through would otherwise leave a half-built workspace behind,
+	// which is worse than not starting. dirs[i][j] is tab i pane j's directory.
+	dirs, err := resolvePaneDirs(root, tabs)
+	if err != nil {
+		return err
+	}
+
 	for i, t := range tabs {
 		tabRoot := rootPane
 		if i == 0 {
-			if err = client.tabRename(rootTab, t.Name); err != nil {
+			// The root tab already exists at the workspace's directory. When this tab
+			// wants a different one there is nothing to change it with — herdr has no
+			// "set a tab's cwd" call — so the tab is rebuilt where it belongs and the
+			// original closed, leaving the new one first in the workspace.
+			if dir := dirs[i][0]; dir != "" && dir != root {
+				_, tabRoot, err = client.tabCreate(ws, t.Name, dir, true)
+				if err != nil {
+					return fmt.Errorf("create tab %q: %w", t.Name, err)
+				}
+				if err = client.tabClose(rootTab); err != nil {
+					return fmt.Errorf("close the replaced root tab: %w", err)
+				}
+			} else if err = client.tabRename(rootTab, t.Name); err != nil {
 				return fmt.Errorf("rename root tab: %w", err)
 			}
 		} else {
-			_, tabRoot, err = client.tabCreate(ws, t.Name, false)
+			_, tabRoot, err = client.tabCreate(ws, t.Name, dirs[i][0], false)
 			if err != nil {
 				return fmt.Errorf("create tab %q: %w", t.Name, err)
 			}
@@ -200,7 +280,7 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane string, tabs []Projec
 		for j, pane := range t.effectivePanes() {
 			paneID := tabRoot
 			if j > 0 {
-				paneID, err = client.paneSplit(prev, pane.Split, pane.splitRatio(), false)
+				paneID, err = client.paneSplit(prev, pane.Split, pane.splitRatio(), dirs[i][j], false)
 				if err != nil {
 					return fmt.Errorf("split pane %d in tab %q: %w", j+1, t.Name, err)
 				}
