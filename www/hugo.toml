@@ -63,6 +63,11 @@ disableKinds = ["taxonomy", "term", "RSS"]
   company  = "Cloudmanic Labs, LLC"
   location = "Newberg, Oregon"
 
+  # Sponsor strip above the nav. Clearing either param hides the strip sitewide.
+  # The URL carries UTM params so Harbor can attribute the referral.
+  sponsorName = "Harbor"
+  sponsorUrl  = "https://harbor.my/?utm_source=herdrplus&utm_medium=referral&utm_campaign=oss-sponsorship&utm_content=top-banner"
+
 # Allow raw HTML in markdown (used sparingly in docs) and configure the TOC.
 [markup]
   [markup.goldmark.renderer]
