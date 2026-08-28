@@ -40,5 +40,13 @@ command = "npm run dev"
 split = "down"
 ratio = 0.3   # the assets pane takes the bottom 30%, the server keeps 70%
 
+# A tab — or a single pane — can override the project's working_dir. A relative
+# path is resolved against it, which is what a monorepo wants:
+#
+#   [[tabs]]
+#   name = "docs"
+#   working_dir = "docs"   # → <the project's working_dir>/docs
+#   command = "make serve"
+#
 [[tabs]]
 name = "terminal"   # no command — just an empty shell

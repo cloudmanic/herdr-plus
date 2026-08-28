@@ -104,9 +104,43 @@ order. Each tab has:
 - `name` — **required**, the tab's label.
 - `command` — optional. The startup command, run as if typed at the prompt. A
   tab with no `command` (and no panes) is just an empty shell.
+- `working_dir` — optional. The directory this tab starts in, overriding the
+  project's. See [A directory per tab](#a-directory-per-tab).
 
 The first tab reuses the workspace's root tab (it's renamed to the tab's name);
 every later tab is created behind it.
+
+## A directory per tab
+
+The project's `working_dir` is where every tab starts. A tab can override it,
+which is what a monorepo usually wants — the frontend and the backend each in
+their own subdirectory:
+
+```toml
+name = "Shop"
+working_dir = "~/dev/shop"
+
+[[tabs]]
+name = "web"
+working_dir = "frontend"   # relative to the project → ~/dev/shop/frontend
+command = "npm run dev"
+
+[[tabs]]
+name = "api"
+working_dir = "backend"    # → ~/dev/shop/backend
+command = "make run"
+
+[[tabs]]
+name = "shell"             # no working_dir → the project's ~/dev/shop
+```
+
+A **relative** path is resolved against the project's `working_dir`, so
+`"frontend"` means what it looks like rather than something relative to wherever
+herdr happens to be running. Absolute paths, `~`, and `$VARS` behave exactly as
+they do at the project level.
+
+Every directory must already exist. A missing one is reported *before* anything
+opens, so a typo never leaves a half-built workspace behind.
 
 ## Split panes within a tab
 
@@ -135,6 +169,8 @@ Each pane:
   - Omitted — defaults to `"down"`.
 - `ratio` — optional. How much of the split this pane takes, between `0` and `1`.
   Omitted, the split is even.
+- `working_dir` — optional. The directory this pane starts in. Omitted, it
+  inherits its tab's. See [A pane in its own directory](#a-pane-in-its-own-directory).
 
 The **first pane is the tab's root**, so its `split` and `ratio` are ignored.
 Each later pane splits off the one before it.
@@ -160,6 +196,28 @@ ratio = 0.25
 
 A ratio outside `0`–`1` (a percentage like `30`, say) is a load-time error rather
 than a silently clamped layout.
+
+### A pane in its own directory
+
+Panes start in their tab's directory. A pane that wants a different one says so,
+and the rest of the tab is unaffected:
+
+```toml
+[[tabs]]
+name = "stack"
+working_dir = "frontend"
+
+[[tabs.panes]]
+command = "npm run dev"          # frontend/
+
+[[tabs.panes]]
+command = "psql shop"
+split = "right"
+working_dir = "../backend/db"    # its own directory instead
+```
+
+A pane's `working_dir` resolves the same way a tab's does — relative to the
+project's `working_dir`, with `~` and `$VARS` expanded.
 
 ### `command` vs. `[[tabs.panes]]` are mutually exclusive
 

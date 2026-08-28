@@ -132,6 +132,50 @@ name = "terminal"   # no command — just an empty shell
 Tabs open in file order. The first tab reuses the workspace's root tab; the rest
 are created behind it. A tab with no `command` is just an empty shell.
 
+### A directory per tab
+
+The project's `working_dir` is where every tab starts. A tab — or a single pane —
+can override it with its own `working_dir`, which is what a monorepo usually wants:
+
+```toml
+name = "Shop"
+working_dir = "~/dev/shop"
+
+[[tabs]]
+name = "web"
+working_dir = "frontend"   # relative to the project → ~/dev/shop/frontend
+command = "npm run dev"
+
+[[tabs]]
+name = "api"
+working_dir = "backend"    # → ~/dev/shop/backend
+command = "make run"
+
+[[tabs]]
+name = "shell"             # no working_dir → the project's ~/dev/shop
+```
+
+A relative path is resolved against the project's `working_dir`, so `"frontend"`
+means what it looks like. Absolute paths, `~`, and `$VARS` work the same as they do
+at the project level. Panes inherit their tab's directory unless they set their own:
+
+```toml
+[[tabs]]
+name = "stack"
+working_dir = "frontend"
+
+[[tabs.panes]]
+command = "npm run dev"          # frontend/
+
+[[tabs.panes]]
+command = "psql shop"
+split = "right"
+working_dir = "../backend/db"    # its own directory instead
+```
+
+Every directory must exist. A missing one is reported before anything opens, so a
+typo never leaves you a half-built workspace to clean up.
+
 ### Opening by name (headless)
 
 The picker is interactive, but a project can also be opened directly — no browser,
