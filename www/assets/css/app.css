@@ -212,6 +212,9 @@
   .card {
     background: var(--color-surface); border: 1px solid var(--color-line);
     border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+    /* Grid/flex items default to min-width:auto, which would let a card's
+       nowrap contents (a codebox command) widen its track past the viewport. */
+    min-width: 0;
   }
   .card-hover { transition: transform .2s ease, box-shadow .25s ease, border-color .2s ease; }
   .card-hover:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); border-color: var(--color-line-strong); }
@@ -251,7 +254,9 @@
     font-family: var(--font-mono); font-size: .9rem; overflow: hidden;
   }
   .codebox .prompt { color: var(--color-accent); user-select: none; }
-  .codebox code { color: var(--color-ink); white-space: nowrap; overflow-x: auto; flex: 1; scrollbar-width: none; }
+  /* min-width:0 lets the flex item shrink past its content so the nowrap command
+     scrolls inside the box instead of pushing the page wider on narrow screens. */
+  .codebox code { color: var(--color-ink); white-space: nowrap; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: none; }
   .codebox code::-webkit-scrollbar { display: none; }
   .copy-btn {
     display: inline-flex; align-items: center; gap: .35rem; flex: none;
@@ -341,6 +346,22 @@
   .toc a { display: block; padding: .25rem 0; font-size: .85rem; color: var(--color-muted); border-left: 2px solid var(--color-line); padding-left: .8rem; transition: all .12s ease; }
   .toc a:hover { color: var(--color-ink); border-color: var(--color-accent); }
   .toc ul ul a { padding-left: 1.6rem; }
+
+  /* ---- sponsor strip (above the nav) --------------------------------- */
+  /* An accent tint rather than a surface fill, so the strip reads as a note
+     about the site instead of a piece of the nav sitting under it. */
+  .sponsor-bar {
+    background: var(--color-accent-soft);
+    border-bottom: 1px solid var(--color-line);
+  }
+  .sponsor-bar-link { display: block; color: var(--color-ink); transition: background-color .18s ease; }
+  .sponsor-bar-link:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+  /* Inset so the ring stays inside the strip instead of being clipped by it. */
+  .sponsor-bar-link:focus-visible { outline-offset: -3px; border-radius: 0; }
+  .sponsor-bar-mark { color: var(--color-accent-ink); }
+  .sponsor-bar-name { font-weight: 600; color: var(--color-accent-ink); }
+  .sponsor-bar-tail { color: var(--color-muted); }
+  .sponsor-bar-arrow { color: var(--color-accent-ink); margin-left: .1rem; }
 
   /* ---- misc ----------------------------------------------------------- */
   .link-accent { color: var(--color-accent-ink); font-weight: 600; }

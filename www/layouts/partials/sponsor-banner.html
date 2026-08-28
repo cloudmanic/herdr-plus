@@ -1,0 +1,34 @@
+{{- /*
+  sponsor-banner.html — slim sitewide strip crediting the project's sponsor.
+  Created on 2026-08-27. Copyright © 2026 Cloudmanic Labs, LLC.
+
+  Sits above the sticky nav and scrolls away with the page, so the sponsor is
+  seen on arrival without permanently eating vertical space. The whole strip is
+  the link — a bigger target than one word — and carries its own aria-label, so
+  the trailing arrow is decoration rather than the only cue that it navigates.
+
+  Renders nothing unless both sponsor params are set in hugo.toml.
+*/ -}}
+{{- $p := .Site.Params -}}
+{{- if and $p.sponsorUrl $p.sponsorName -}}
+<div class="sponsor-bar">
+  <a href="{{ $p.sponsorUrl }}"
+     class="sponsor-bar-link group"
+     aria-label="{{ $p.sponsorName }} sponsors herdr-plus — visit {{ $p.sponsorName }}, the private notes app you own for life">
+    <p class="container-x flex flex-wrap items-center justify-center gap-x-2 gap-y-1 py-2 text-center text-[13px] leading-snug">
+      <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+        {{ partial "icon.html" (dict "name" "anchor" "class" "h-[15px] w-[15px] shrink-0 sponsor-bar-mark") }}
+        {{- /* Full sentence on desktop, a trimmed one where the strip gets tight. */ -}}
+        <span class="hidden sm:inline">herdr-plus is free and open source, sponsored by</span>
+        <span class="sm:hidden">Sponsored by</span>
+        <span class="sponsor-bar-name group-hover:underline underline-offset-4">{{ $p.sponsorName }}</span>
+      </span>
+      <span class="sponsor-bar-tail whitespace-nowrap">
+        <span class="hidden sm:inline">— the private notes app you own for life.</span>
+        <span class="sm:hidden">— notes you own for life</span>
+        <span class="sponsor-bar-arrow" aria-hidden="true">&rarr;</span>
+      </span>
+    </p>
+  </a>
+</div>
+{{- end -}}

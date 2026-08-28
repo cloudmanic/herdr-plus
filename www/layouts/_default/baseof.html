@@ -20,6 +20,7 @@
   {{ if .IsHome }}{{ partial "schema.html" . }}{{ end }}
 </head>
 <body class="min-h-screen antialiased">
+  {{ partial "sponsor-banner.html" . }}
   {{ partial "nav.html" . }}
   <main id="main">
     {{ block "main" . }}{{ end }}
