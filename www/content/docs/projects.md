@@ -257,6 +257,41 @@ How the browser lays out:
 - **Search is unchanged.** Start typing and the headings drop away — you filter a
   single ranked list across every project, grouped or not.
 
+## Opening a project by name
+
+The browser is interactive, but a project can also be opened directly — no picker,
+no fuzzy-typing — with the `open` subcommand:
+
+```sh
+herdr-plus open harbor-sysadmin
+```
+
+It loads the same project templates the browser shows, resolves the one whose
+`name` matches — exactly first, then case-insensitively, so `open Harbor-Sysadmin`
+still finds `harbor-sysadmin` — and builds its workspace through the **same code
+path** the browser uses. There is one source of truth for turning a template into a
+live workspace. A name that matches nothing fails with the list of what is
+available.
+
+Run it from **inside herdr** — a pane's shell, a keybinding, a script, another
+tool. Like every herdr-plus command it reaches the running herdr over its socket,
+and it asks herdr where your templates live, so it finds exactly the ones the
+browser shows.
+
+That makes it the scriptable way to spin up a known workspace in one shot, which is
+handy for the two or three projects you open constantly:
+
+```sh
+alias work='herdr-plus open my-work-app'
+```
+
+To get `herdr-plus` onto your `PATH`, see
+[Just the binary](https://github.com/cloudmanic/herdr-plus#just-the-binary) —
+installing the plugin alone does not put it there.
+
+> **Note:** A project whose `working_dir` is `{prompt}` can't be opened this way —
+> there's no picker to ask for the path. Use the browser for those.
+
 ## Adding and removing projects
 
 The model is one file per project:
