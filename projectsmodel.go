@@ -590,7 +590,7 @@ func (m projectsModel) branchView(w, h int) string {
 // expand like working_dir), plus any validation error from the last attempt.
 // It backs the modePath state.
 func (m projectsModel) pathView(w, h int) string {
-	header := headerBarStyle.Width(w).Render(projectsTitle)
+	header := headerBarStyle.Width(w).Render(m.headerTitle())
 
 	name := ""
 	if m.chosen != nil {

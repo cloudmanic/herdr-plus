@@ -9,6 +9,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -289,6 +290,9 @@ func TestNewWorkspacePickerPresentation(t *testing.T) {
 	}
 	if picker.headerTitle() != newWorkspaceTitle {
 		t.Errorf("new-workspace headerTitle = %q, want %q", picker.headerTitle(), newWorkspaceTitle)
+	}
+	if view := picker.pathView(80, 24); !strings.Contains(view, newWorkspaceTitle) {
+		t.Errorf("new-workspace path prompt does not contain title %q", newWorkspaceTitle)
 	}
 	if base.cancelHint() == picker.cancelHint() {
 		t.Errorf("cancelHint is %q in both presentations; the new-workspace one must say what esc keeps", base.cancelHint())
