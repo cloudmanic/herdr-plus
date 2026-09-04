@@ -365,6 +365,83 @@ func (c *herdrClient) workspacePaneCount(workspaceID string) (int, error) {
 	return n, nil
 }
 
+// workspaceTargetPane returns the pane a new pane should be anchored to when
+// opening one into a workspace we are not running inside. herdr's zoomed and
+// split plugin panes are positioned relative to an existing pane rather than to a
+// workspace, so the new-workspace picker has to name one.
+//
+// Preference order within the workspace: the pane in the given tab (when the
+// caller knows which tab, e.g. from a workspace.created payload), then the
+// focused one — a freshly created workspace focuses its root pane — then whatever
+// herdr listed first. The tab filter is dropped rather than obeyed to the point of
+// returning nothing, so an unexpected tab id degrades to "some pane in the right
+// workspace" instead of an error.
+func (c *herdrClient) workspaceTargetPane(workspaceID, tabID string) (string, error) {
+	var out struct {
+		Panes []paneCandidate `json:"panes"`
+	}
+	if err := c.call("pane.list", map[string]any{}, &out); err != nil {
+		return "", err
+	}
+	if pane := pickTargetPane(out.Panes, workspaceID, tabID); pane != "" {
+		return pane, nil
+	}
+	return "", fmt.Errorf("workspace %s has no panes", workspaceID)
+}
+
+// waitForWorkspaceTargetPane is workspaceTargetPane with a deadline, for callers
+// racing a workspace into existence. herdr emits workspace.created before the
+// workspace's root pane is necessarily visible to pane.list — the ordering
+// differs between the sidebar's New button and an API-driven create — so a
+// handler that looks once sees an empty workspace and gives up. Polling until the
+// root pane appears makes the handler independent of that ordering.
+//
+// It reports the last error on timeout, so a workspace that genuinely never gets
+// a pane still fails with the reason rather than a bare timeout.
+func (c *herdrClient) waitForWorkspaceTargetPane(workspaceID, tabID string, timeout time.Duration) (string, error) {
+	deadline := time.Now().Add(timeout)
+	for {
+		pane, err := c.workspaceTargetPane(workspaceID, tabID)
+		if err == nil {
+			return pane, nil
+		}
+		if time.Now().After(deadline) {
+			return "", err
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// paneCandidate is the slice of pane.list that choosing an anchor pane needs.
+type paneCandidate struct {
+	PaneID      string `json:"pane_id"`
+	TabID       string `json:"tab_id"`
+	WorkspaceID string `json:"workspace_id"`
+	Focused     bool   `json:"focused"`
+}
+
+// pickTargetPane applies workspaceTargetPane's preference order to a pane list,
+// returning "" when the workspace has no panes at all. It is split out from the
+// socket call so the choice itself is testable.
+func pickTargetPane(panes []paneCandidate, workspaceID, tabID string) string {
+	first, inTab, focused := "", "", ""
+	for _, p := range panes {
+		if p.WorkspaceID != workspaceID {
+			continue
+		}
+		if first == "" {
+			first = p.PaneID
+		}
+		if p.Focused && focused == "" {
+			focused = p.PaneID
+		}
+		if tabID != "" && p.TabID == tabID && inTab == "" {
+			inTab = p.PaneID
+		}
+	}
+	return firstNonEmpty(inTab, focused, first)
+}
+
 // paneGet fetches metadata for a single pane, including its working directory
 // and the tab/workspace it belongs to.
 func (c *herdrClient) paneGet(paneID string) (paneInfo, error) {

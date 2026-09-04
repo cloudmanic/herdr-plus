@@ -54,6 +54,47 @@ func launchProjects() {
 // terminal), loads the projects, and — when one is chosen — spins up its
 // workspace. On cancel it simply exits and herdr tears the pane down.
 func runProjectsUI() {
+	choice, ok := pickProject(false)
+	if !ok {
+		// Cancelled — nothing to do; herdr closes the pane when this process exits.
+		return
+	}
+
+	client, err := newHerdrClient()
+	if err != nil {
+		errExit(err)
+	}
+	if choice.worktree {
+		if err := openProjectAsWorktree(client, choice.project, choice.branch); err != nil {
+			errExit("could not open project as worktree:", err)
+		}
+		return
+	}
+	if err := openProject(client, choice.project); err != nil {
+		errExit("could not open project:", err)
+	}
+}
+
+// projectChoice is what the projects browser hands back: the project the user
+// picked, and whether they asked for it as a git worktree (ctrl+g) on which
+// branch.
+type projectChoice struct {
+	project  Project
+	worktree bool
+	branch   string
+}
+
+// pickProject loads the projects, runs the full-screen browser, and returns the
+// user's choice. The second return value is false when the user cancelled or the
+// program produced no model, which every caller treats as "do nothing".
+//
+// newWorkspace switches the browser into its new-workspace presentation — same
+// list and keys, wording that says the empty workspace is what esc keeps. Both
+// picker entry points share this function so there is one place that knows how to
+// turn config into a running browser.
+//
+// A config error exits non-zero without closing the pane, so the user can read it.
+func pickProject(newWorkspace bool) (projectChoice, bool) {
 	projects, err := loadProjects()
 	if err != nil {
 		// Leave the pane open so the user can read the config error.
@@ -67,10 +108,15 @@ func runProjectsUI() {
 
 	dir, _ := projectsConfigDir()
 
+	model := newProjectsModel(projects, dir, cfg.Worktree.BranchPrefix)
+	if newWorkspace {
+		model = model.asNewWorkspacePicker()
+	}
+
 	// WithMouseCellMotion enables click/release/wheel events so a project can be
 	// opened with the mouse. herdr forwards these to us once we ask for them;
 	// until then it keeps the mouse for its own pane focus/selection.
-	p := tea.NewProgram(newProjectsModel(projects, dir, cfg.Worktree.BranchPrefix), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	result, err := p.Run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "herdr-plus:", err)
@@ -78,24 +124,9 @@ func runProjectsUI() {
 
 	m, ok := result.(projectsModel)
 	if !ok || m.chosen == nil {
-		// Cancelled (or the program never produced a model) — nothing to do; herdr
-		// closes the pane when this process exits.
-		return
+		return projectChoice{}, false
 	}
-
-	client, err := newHerdrClient()
-	if err != nil {
-		errExit(err)
-	}
-	if m.worktree {
-		if err := openProjectAsWorktree(client, *m.chosen, m.branch); err != nil {
-			errExit("could not open project as worktree:", err)
-		}
-		return
-	}
-	if err := openProject(client, *m.chosen); err != nil {
-		errExit("could not open project:", err)
-	}
+	return projectChoice{project: *m.chosen, worktree: m.worktree, branch: m.branch}, true
 }
 
 // openProject turns a project into a live herdr workspace: it creates a focused
@@ -118,6 +149,12 @@ func openProject(client *herdrClient, p Project) error {
 	if err := checkTabDirs(dir, p.Tabs); err != nil {
 		return err
 	}
+
+	// Tell the workspace.created handler this next workspace is ours, so the
+	// new-workspace picker does not offer to replace a workspace it just built.
+	// It must be recorded before the create call, not after, or the event can
+	// reach the handler first.
+	suppressNewWorkspaceIntercept()
 
 	ws, rootTab, rootPane, err := client.workspaceCreate(dir, p.Name, true)
 	if err != nil {
@@ -154,6 +191,12 @@ func openProjectAsWorktree(client *herdrClient, p Project, branch string) error 
 	if !isInsideGitWorkTree(dir) {
 		return fmt.Errorf("not a git repository: %s (opening as a worktree requires one)", dir)
 	}
+
+	// A worktree gets a workspace too, so claim its workspace.created the same way
+	// openProject does. The event's own worktree field already tells the handler to
+	// stand down; this simply does not depend on that.
+	suppressNewWorkspaceIntercept()
+
 	return client.worktreeCreate(dir, branch, true)
 }
 

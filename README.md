@@ -5,7 +5,8 @@ herdr-plus is an add-on for [herdr](https://herdr.dev), built as a first-class
 
 - **[Projects](#projects)** — declarative herdr-workspace templates you fuzzy-pick
   to spin up a whole workspace (every tab and pane, every startup command) in one
-  keypress.
+  keypress. Optionally, [herdr's own New button](#new-workspace--pick-a-project)
+  offers them too.
 - **[Quick Actions](#quick-actions)** — a fuzzy launcher for one-off
   actions/scripts, run in the directory you launched from.
 
@@ -82,6 +83,9 @@ placement = "zoomed" # overlay, popup, split, tab, or zoomed; default is zoomed
 
 [quick_actions]
 placement = "overlay" # overlay, popup, split, tab, or zoomed; default is overlay
+
+[new_workspace]
+mode = "picker" # "off" (default) or "picker" — see New workspace → pick a project
 ```
 
 `placement` controls how herdr opens each picker — see herdr's
@@ -233,6 +237,44 @@ ratio = 0.3
 ```
 
 A tab uses *either* `command` *or* `[[tabs.panes]]`, not both.
+
+### New workspace → pick a project
+
+herdr's sidebar **New** button (and the `new_workspace` keybinding) creates an
+empty workspace rooted at the directory you are already in. Turn this on and it
+offers your projects instead:
+
+```toml
+[new_workspace]
+mode = "picker"   # default: "off"
+```
+
+With it on, every new, empty workspace opens the projects browser over itself.
+Pick a project and herdr-plus builds that project's workspace and closes the empty
+one it replaced; **esc** keeps the empty workspace exactly as herdr made it, so a
+plain workspace is always one keypress away. **ctrl+g** still opens the highlighted
+project as a git worktree.
+
+It is deliberately conservative — herdr fires `workspace.created` for *every*
+workspace, so the handler stands down for anything that is not the blank workspace
+you just asked for:
+
+| It leaves the workspace alone when… | Why |
+| --- | --- |
+| `mode` is `"off"` (or unset) | the feature is opt-in |
+| the workspace belongs to a git worktree | [worktree layouts](#worktree-auto-layout) own those |
+| it was created in the background | a full-screen picker would be a surprise |
+| it already has tabs or panes | something already filled it |
+| herdr-plus created it | otherwise opening a project would ask again, forever |
+| no projects are defined | the browser would have nothing to offer |
+
+Every skip is logged with its reason in
+`herdr plugin log list --plugin cloudmanic.herdr-plus`.
+
+This reacts to the workspace rather than replacing the button: herdr's plugin API
+has no hook on the sidebar's New button itself, and `workspace.created` is a
+notification, not something a plugin can cancel. The visible cost is a brief flash
+of the empty workspace before the browser covers it.
 
 ## Quick Actions
 

@@ -21,6 +21,11 @@ import (
 // projectsTitle is the heading shown across the top of the projects browser.
 const projectsTitle = "Herdr Plus · Projects"
 
+// newWorkspaceTitle replaces it when the browser is shown over a brand-new,
+// empty workspace, so it is obvious the choice is about what that workspace
+// becomes rather than an extra workspace appearing from nowhere.
+const newWorkspaceTitle = "Herdr Plus · New workspace"
+
 // docsURL is where the empty-state points for "more documentation". Full docs
 // live elsewhere later; for now the repo is the home of everything.
 const docsURL = "https://github.com/cloudmanic/herdr-plus"
@@ -116,6 +121,36 @@ type projectsModel struct {
 	pathInput       textinput.Model
 	pathErr         string
 	branchAfterPath bool
+
+	// newWorkspace marks the browser as the one shown over a brand-new, empty
+	// workspace (see asNewWorkspacePicker). It changes only the wording — the
+	// list, the keys, and the choice it produces are identical.
+	newWorkspace bool
+}
+
+// asNewWorkspacePicker returns the model presented as the new-workspace picker:
+// its own title, and a footer that spells out what esc leaves behind — the empty
+// workspace herdr just made. Cancelling has to read as a real option there, since
+// it is how you still get a plain workspace with the feature enabled.
+func (m projectsModel) asNewWorkspacePicker() projectsModel {
+	m.newWorkspace = true
+	return m
+}
+
+// headerTitle is the heading for the current presentation.
+func (m projectsModel) headerTitle() string {
+	if m.newWorkspace {
+		return newWorkspaceTitle
+	}
+	return projectsTitle
+}
+
+// cancelHint describes what esc does in the current presentation.
+func (m projectsModel) cancelHint() string {
+	if m.newWorkspace {
+		return "esc keep empty workspace"
+	}
+	return "esc quit"
 }
 
 // ungroupedHeading labels the catch-all bucket for projects that declare no
@@ -507,12 +542,12 @@ func (m projectsModel) View() string {
 // top, the fuzzy list below it, and the highlighted project's detail bar pinned
 // just above the footer at the bottom of the screen.
 func (m projectsModel) browserView(w, h int) string {
-	header := headerBarStyle.Width(w).Render(projectsTitle)
+	header := headerBarStyle.Width(w).Render(m.headerTitle())
 
 	body := m.list.view("no matching projects")
 
 	detail := m.detailBar(w)
-	footer := footerStyle.Render("  ↑/↓ move · type to filter · click/enter open · ctrl+g worktree · esc quit")
+	footer := footerStyle.Render("  ↑/↓ move · type to filter · click/enter open · ctrl+g worktree · " + m.cancelHint())
 
 	top := header + "\n\n" + body
 	bottom := detail + "\n" + footer
@@ -529,7 +564,7 @@ func (m projectsModel) browserView(w, h int) string {
 // working directory above a single-line input for the optional branch name, with
 // a footer explaining enter/esc. It backs the modeBranch state.
 func (m projectsModel) branchView(w, h int) string {
-	header := headerBarStyle.Width(w).Render(projectsTitle)
+	header := headerBarStyle.Width(w).Render(m.headerTitle())
 
 	name, dir := "", ""
 	if m.chosen != nil {
@@ -555,7 +590,7 @@ func (m projectsModel) branchView(w, h int) string {
 // expand like working_dir), plus any validation error from the last attempt.
 // It backs the modePath state.
 func (m projectsModel) pathView(w, h int) string {
-	header := headerBarStyle.Width(w).Render(projectsTitle)
+	header := headerBarStyle.Width(w).Render(m.headerTitle())
 
 	name := ""
 	if m.chosen != nil {
