@@ -82,6 +82,9 @@ placement = "zoomed" # overlay, popup, split, tab, or zoomed; default is zoomed
 
 [quick_actions]
 placement = "overlay" # overlay, popup, split, tab, or zoomed; default is overlay
+
+[ui]
+terminal_title = true # opt in to terminal-derived inverse picker titles; default false
 ```
 
 `placement` controls how herdr opens each picker — see herdr's
@@ -90,6 +93,13 @@ each value does. `popup` is a good fit for either picker if you want a small
 floating window that leaves your tiled layout untouched, rather than the default
 zoomed/overlay takeover. An empty or invalid value falls back to the built-in
 default and prints a warning to stderr rather than being passed through to herdr.
+
+`[ui] terminal_title = true` uses the terminal's default foreground/background in
+reverse for Projects list/branch/path titles and Quick Actions action/select/form
+titles, without setting either colour explicitly. Omit it or set it to `false`
+to keep the existing purple titles. Other UI styles are unchanged. In the
+renderer's no-colour/ASCII mode (including non-empty `NO_COLOR`), the title keeps
+its text and spacing but loses reverse and bold styling too.
 
 ## Projects
 

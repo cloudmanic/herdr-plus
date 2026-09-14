@@ -66,11 +66,13 @@ func runProjectsUI() {
 	}
 
 	dir, _ := projectsConfigDir()
+	model := newProjectsModel(projects, dir, cfg.Worktree.BranchPrefix)
+	model.titleStyle = configuredTitleStyle(cfg)
 
 	// WithMouseCellMotion enables click/release/wheel events so a project can be
 	// opened with the mouse. herdr forwards these to us once we ask for them;
 	// until then it keeps the mouse for its own pane focus/selection.
-	p := tea.NewProgram(newProjectsModel(projects, dir, cfg.Worktree.BranchPrefix), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	result, err := p.Run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "herdr-plus:", err)

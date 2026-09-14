@@ -60,9 +60,6 @@ const (
 // (titleStyle, nameStyle, descStyle, footerStyle, …); here we add the few extra
 // pieces the full-screen browser needs.
 var (
-	// headerBarStyle is the full-width purple title bar across the top.
-	headerBarStyle = titleStyle
-
 	// detailBoxStyle frames the bottom bar that previews the highlighted project.
 	detailBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -95,6 +92,7 @@ type projectsModel struct {
 	projects    []Project
 	list        fuzzyList
 	projectsDir string
+	titleStyle  lipgloss.Style
 
 	width  int
 	height int
@@ -140,6 +138,7 @@ func newProjectsModel(projects []Project, projectsDir, branchPrefix string) proj
 		projects:     ordered,
 		list:         newFuzzyList("Type to filter projects…", items),
 		projectsDir:  projectsDir,
+		titleStyle:   titleStyle,
 		branchInput:  branchInput,
 		branchPrefix: branchPrefix,
 		pathInput:    pathInput,
@@ -507,7 +506,7 @@ func (m projectsModel) View() string {
 // top, the fuzzy list below it, and the highlighted project's detail bar pinned
 // just above the footer at the bottom of the screen.
 func (m projectsModel) browserView(w, h int) string {
-	header := headerBarStyle.Width(w).Render(projectsTitle)
+	header := m.titleStyle.Width(w).Render(projectsTitle)
 
 	body := m.list.view("no matching projects")
 
@@ -529,7 +528,7 @@ func (m projectsModel) browserView(w, h int) string {
 // working directory above a single-line input for the optional branch name, with
 // a footer explaining enter/esc. It backs the modeBranch state.
 func (m projectsModel) branchView(w, h int) string {
-	header := headerBarStyle.Width(w).Render(projectsTitle)
+	header := m.titleStyle.Width(w).Render(projectsTitle)
 
 	name, dir := "", ""
 	if m.chosen != nil {
@@ -555,7 +554,7 @@ func (m projectsModel) branchView(w, h int) string {
 // expand like working_dir), plus any validation error from the last attempt.
 // It backs the modePath state.
 func (m projectsModel) pathView(w, h int) string {
-	header := headerBarStyle.Width(w).Render(projectsTitle)
+	header := m.titleStyle.Width(w).Render(projectsTitle)
 
 	name := ""
 	if m.chosen != nil {

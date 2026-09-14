@@ -12,7 +12,38 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/muesli/termenv"
 )
+
+func TestProjectsSelectedTitleStyle(t *testing.T) {
+	for _, config := range []string{"", "[ui]\nterminal_title = false\n", "[ui]\nterminal_title = true\n"} {
+		t.Run(config, func(t *testing.T) {
+			cfg := loadTitleTestConfig(t, config)
+			r := titleTestRenderer(termenv.TrueColor)
+			m := newProjectsModel(sampleProjects(), "/cfg/projects", "")
+			if m.titleStyle.GetReverse() || m.titleStyle.GetBackground() != titleStyle.GetBackground() {
+				t.Fatal("constructor must retain the default purple title")
+			}
+			m.titleStyle = configuredTitleStyle(cfg).Renderer(r)
+			m = step(t, m, tea.WindowSizeMsg{Width: 80, Height: 24})
+			m.chosen = &m.projects[0]
+			for _, mode := range []projectsMode{modeList, modeBranch, modePath} {
+				m.mode = mode
+				got := strings.SplitN(m.View(), "\n", 2)[0]
+				want := configuredTitleStyle(cfg).Renderer(r).Width(80).Render(projectsTitle)
+				if got != want {
+					t.Fatalf("mode %v title = %q, want %q", mode, got, want)
+				}
+				if cfg.UI.TerminalTitle {
+					assertInverseTitle(t, got)
+				}
+			}
+			if m.titleStyle.GetWidth() != 0 {
+				t.Fatal("rendering a full-width title mutated the model's base style")
+			}
+		})
+	}
+}
 
 // sampleProjects returns two pre-sorted projects for the model tests.
 func sampleProjects() []Project {

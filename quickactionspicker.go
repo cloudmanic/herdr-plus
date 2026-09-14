@@ -13,6 +13,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // quickActionsTitle is the heading shown across the top of the action picker.
@@ -41,7 +42,8 @@ const (
 type pickerModel struct {
 	ctx RunContext
 
-	stage stage
+	stage      stage
+	titleStyle lipgloss.Style
 
 	actions    []Action
 	actionList fuzzyList
@@ -86,6 +88,7 @@ func newPickerModel(ctx RunContext, actions []Action) pickerModel {
 
 	return pickerModel{
 		ctx:        ctx,
+		titleStyle: titleStyle,
 		stage:      stageActions,
 		actions:    ordered,
 		actionList: newFuzzyList("Type to filter…", actionListItems(project, global)),
@@ -342,14 +345,14 @@ func (m pickerModel) View() string {
 
 	switch m.stage {
 	case stageSelect:
-		b.WriteString(titleStyle.Render(m.current.Name))
+		b.WriteString(m.titleStyle.Render(m.current.Name))
 		b.WriteString("\n\n")
 		b.WriteString(m.optionList.view("no matching options"))
 		b.WriteString("\n")
 		b.WriteString(footerStyle.Render("↑/↓ move • click/enter select • esc back"))
 
 	case stageForm:
-		b.WriteString(titleStyle.Render(m.current.Name))
+		b.WriteString(m.titleStyle.Render(m.current.Name))
 		b.WriteString("\n\n")
 		prompt := m.current.Form.Prompt
 		if prompt == "" {
@@ -363,7 +366,7 @@ func (m pickerModel) View() string {
 		b.WriteString(footerStyle.Render("enter submit • esc back"))
 
 	default: // stageActions
-		b.WriteString(titleStyle.Render(quickActionsTitle))
+		b.WriteString(m.titleStyle.Render(quickActionsTitle))
 		b.WriteString("\n\n")
 		b.WriteString(m.actionList.view("no matching actions"))
 		b.WriteString("\n")
@@ -415,6 +418,11 @@ func runQuickActionsUI() {
 		errExit("could not decode run context:", err)
 	}
 
+	cfg, err := loadPluginConfig()
+	if err != nil {
+		errExit(err)
+	}
+
 	actions, err := loadPickerActions(ctx.WorkDir)
 	if err != nil {
 		// Leave the pane open so the user can read the config error.
@@ -426,9 +434,12 @@ func runQuickActionsUI() {
 		errExit(fmt.Sprintf("no actions found in %s", dir))
 	}
 
+	model := newPickerModel(ctx, actions)
+	model.titleStyle = configuredTitleStyle(cfg)
+
 	// WithMouseCellMotion enables click/release/wheel events so a row can be run
 	// with the mouse.
-	p := tea.NewProgram(newPickerModel(ctx, actions), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	result, err := p.Run()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "herdr-plus:", err)

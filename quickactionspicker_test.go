@@ -7,10 +7,47 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/muesli/termenv"
 )
+
+func TestPickerSelectedTitleStyle(t *testing.T) {
+	for _, config := range []string{"", "[ui]\nterminal_title = false\n", "[ui]\nterminal_title = true\n"} {
+		t.Run(config, func(t *testing.T) {
+			cfg := loadTitleTestConfig(t, config)
+			r := titleTestRenderer(termenv.TrueColor)
+			m := newPickerModel(RunContext{}, []Action{{Name: "Test action"}})
+			if m.titleStyle.GetReverse() || m.titleStyle.GetBackground() != titleStyle.GetBackground() {
+				t.Fatal("constructor must retain the default purple title")
+			}
+			m.titleStyle = configuredTitleStyle(cfg).Renderer(r)
+			updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+			m = updated.(pickerModel)
+			// Construct view-only states; never resolve dynamic options or run actions.
+			m.current = &Action{Name: "Test action"}
+			m.optionList = newFuzzyList("Pick an option…", nil)
+			m.formInput = newFormInput(FormConfig{})
+			for _, stage := range []stage{stageActions, stageSelect, stageForm} {
+				m.stage = stage
+				title := m.current.Name
+				if stage == stageActions {
+					title = quickActionsTitle
+				}
+				got := strings.SplitN(m.View(), "\n", 2)[0]
+				want := configuredTitleStyle(cfg).Renderer(r).Render(title)
+				if got != want {
+					t.Fatalf("stage %v title = %q, want %q", stage, got, want)
+				}
+				if cfg.UI.TerminalTitle {
+					assertInverseTitle(t, got)
+				}
+			}
+		})
+	}
+}
 
 // TestOptionItems confirms select options render their label plus optional
 // description (never the raw value), that separators become non-selectable
