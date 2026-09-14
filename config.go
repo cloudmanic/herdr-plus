@@ -40,6 +40,12 @@ var validPanePlacements = map[string]bool{
 // at the config root (alongside projects/ and quick-actions/). Every field is
 // optional; an absent file yields the zero value.
 type PluginConfig struct {
+	UI struct {
+		// TerminalTitle uses the terminal's inverse colours for picker titles.
+		// False keeps the built-in purple foreground/background pair.
+		TerminalTitle bool `toml:"terminal_title"`
+	} `toml:"ui"`
+
 	Worktree struct {
 		// BranchPrefix is prepended to a bare worktree branch name typed in the
 		// projects browser (ctrl+g). It is used verbatim, so include any trailing

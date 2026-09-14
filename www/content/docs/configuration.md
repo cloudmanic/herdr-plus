@@ -4,8 +4,9 @@ description: "The herdr-plus config directory: herdr's managed plugin dir, the p
 weight: 90
 ---
 
-herdr-plus keeps its configuration in herdr's **managed plugin directory**. There's
-no central config file — everything is a file per entry.
+herdr-plus keeps its configuration in herdr's **managed plugin directory**.
+Projects, actions, and worktree layouts are a file per entry. Optional global
+settings live in `config.toml` at the same config root.
 
 ## Finding the config directory
 
@@ -28,6 +29,7 @@ upgrade**, so your projects and quick actions survive a reinstall.
 
 ```text
 <config-dir>/
+  config.toml        # optional global settings
   projects/          # one *.toml per project
     options-cafe.toml
     bevio.toml
@@ -51,6 +53,22 @@ upgrade**, so your projects and quick actions survive a reinstall.
   defines one layout that fires when herdr creates a matching git worktree. This
   directory is **never created or seeded** — add it yourself to opt in. A layout
   is on simply by existing; delete the file to turn it off.
+
+## Terminal-derived picker titles
+
+Opt in via `<config-dir>/config.toml`:
+
+```toml
+[ui]
+terminal_title = true # default false
+```
+
+This uses the terminal's default foreground/background in reverse, with no
+explicit title colours, for Projects list/branch/path titles and Quick Actions
+action/select/form titles. Omit the setting or use `false` to keep the existing
+purple titles. Other UI styles are unchanged. No-colour/ASCII rendering
+(including non-empty `NO_COLOR`) keeps the title text and spacing but suppresses
+reverse and bold styling too.
 
 ## The file-per-entry model
 
