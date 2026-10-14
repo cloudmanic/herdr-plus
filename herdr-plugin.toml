@@ -59,6 +59,13 @@ command = ["go", "build", "-o", "bin/herdr-plus.exe", "."]
 #      resolves `.\bin\herdr-plus.exe` from there.
 #   2. Extension. Windows cannot spawn an extensionless PE by its bare path
 #      (CreateProcessW appends .exe), so the binary must be named herdr-plus.exe.
+#   3. Panes name powershell.exe, not powershell. herdr spawns [[panes]] through
+#      a PATH search that returns the first `<dir>\powershell` that exists before
+#      it tries PATHEXT, and where C:\Windows\System32\PowerShell exists (it holds
+#      PowerShell 7's remoting plugin, pwrshplugin.dll) that match is a directory,
+#      so the pane fails with "Access is denied. (os error 5)". Actions and events
+#      resolve through a different path that skips directories, so they keep the
+#      bare name.
 
 # projects — the flagship action. Opens a full-screen browser to fuzzy-pick a
 # project (a declarative set of tabs/panes from ~/.config/herdr-plus/projects/)
@@ -93,7 +100,7 @@ placement = "zoomed"
 platforms = ["windows"]
 # Panes deliberately omit -NonInteractive (which actions/events keep): this hosts
 # an interactive bubbletea TUI, and -NonInteractive would break its input.
-command = ["powershell", "-NoProfile", "-Command", "& .\\bin\\herdr-plus.exe projects-ui"]
+command = ["powershell.exe", "-NoProfile", "-Command", "& .\\bin\\herdr-plus.exe projects-ui"]
 
 # quick-actions — a fuzzy launcher for one-off actions/scripts (command, select,
 # or form), loaded from ~/.config/herdr-plus/quick-actions/ (plus a repo's own
@@ -127,7 +134,7 @@ title = "Quick Actions"
 placement = "overlay"
 platforms = ["windows"]
 # Omits -NonInteractive on purpose — interactive TUI pane; see picker-windows.
-command = ["powershell", "-NoProfile", "-Command", "& .\\bin\\herdr-plus.exe quick-actions-ui"]
+command = ["powershell.exe", "-NoProfile", "-Command", "& .\\bin\\herdr-plus.exe quick-actions-ui"]
 
 # ping — a smoke-test action that proves the plugin loop end to end: it talks to
 # herdr over the socket and prints the focused pane/workspace. Its output is
