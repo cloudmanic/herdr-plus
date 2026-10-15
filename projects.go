@@ -239,6 +239,10 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane, root string, tabs []
 	type pendingRun struct {
 		pane    string
 		command string
+		wait    *PaneWait
+		// baseline is how often wait.Match was already on screen before the command
+		// was typed (see outputShows).
+		baseline int
 	}
 	var runs []pendingRun
 	var err error
@@ -292,7 +296,7 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane, root string, tabs []
 				}
 			}
 			if strings.TrimSpace(pane.Command) != "" {
-				runs = append(runs, pendingRun{pane: paneID, command: pane.Command})
+				runs = append(runs, pendingRun{pane: paneID, command: pane.Command, wait: pane.WaitFor})
 			}
 			prev = paneID
 		}
@@ -301,10 +305,23 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane, root string, tabs []
 	// Run each tab's startup command. runCommand paces itself to each freshly
 	// spawned shell — waiting for its prompt, typing the command, then submitting
 	// with a real Enter key — so the apps (claude, lazygit, …) actually start
-	// instead of sitting unsubmitted at the prompt for the user to press Enter.
-	for _, r := range runs {
+	// instead of sitting unsubmitted at the prompt for the user to press Enter. A
+	// pane with wait_for holds the loop here until its output shows up, so commands
+	// listed after it can rely on it.
+	for i, r := range runs {
+		if r.wait != nil {
+			r.baseline = client.matchCount(r.pane, r.wait.Match)
+		}
 		if err := client.runCommand(r.pane, r.command); err != nil {
 			return fmt.Errorf("run command in pane %s: %w", r.pane, err)
+		}
+		// Nothing runs after the last command, so there is nothing to hold back.
+		if r.wait != nil && i < len(runs)-1 {
+			if ok, readErr := client.waitForPaneOutput(r.pane, r.wait.Match, r.command, r.baseline, r.wait.timeout()); !ok {
+				// Not fatal: a project that opens without its dependency ready is more
+				// useful than one that hangs half-built.
+				fmt.Fprintf(os.Stderr, "herdr-plus: pane %s never printed %q within %s (last read error: %v); continuing\n", r.pane, r.wait.Match, r.wait.timeout(), readErr)
+			}
 		}
 	}
 	return nil

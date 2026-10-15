@@ -176,6 +176,39 @@ working_dir = "../backend/db"    # its own directory instead
 Every directory must exist. A missing one is reported before anything opens, so a
 typo never leaves you a half-built workspace to clean up.
 
+### Waiting for a pane to be ready
+
+Startup commands run one after another, as soon as each shell is up. When a later
+command depends on an earlier one — tests that need the dev server listening, a
+migration that needs the database — add `wait_for` to the pane that must come first:
+
+```toml
+[[tabs.panes]]
+command = "npm run dev"
+wait_for = { match = "ready in", timeout_ms = 15000 }
+
+[[tabs.panes]]
+command = "npm test"
+split = "right"
+```
+
+`npm test` is typed only after `npm run dev` has printed `ready in`. `wait_for` goes
+on a `[[tabs.panes]]` entry, or on a single-command `[[tabs]]` entry, and needs a
+`command`.
+
+- `match` is a literal substring, not a regex, searched in the last 2000 lines of the
+  pane's output. Text that was already on screen before the command ran (a prompt,
+  a banner) and the echo of the command line itself do not count. Output the program
+  prints about itself does, so pick text only the ready state prints: `match = "dev"`
+  would be satisfied by npm's own `> app@1.0.0 dev` banner.
+- `timeout_ms` defaults to 30000 and may be at most 3600000 (one hour).
+- If the text never appears the project still opens: the wait gives up with a
+  warning and the remaining commands run.
+- A `wait_for` on the last command of the project has nothing to hold back and is
+  skipped.
+- The wait reads the pane's scrollback, so a program that takes over the whole screen
+  (lazygit, vim) never shows its text there; do not wait on one.
+
 ### Opening by name (headless)
 
 The picker is interactive, but a project can also be opened directly — no browser,

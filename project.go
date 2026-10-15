@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -34,12 +35,41 @@ const maxPanesPerTab = 4
 // takes, between 0 and 1; omitting it splits the space evenly, and it is ignored
 // for the first pane, which has nothing to split off. WorkingDir overrides the
 // directory the pane starts in, falling back to its tab's and then the project's.
+// WaitFor, when set, holds back every later startup command until this pane's
+// command has printed the given text — see PaneWait.
 type ProjectPane struct {
-	Command    string  `toml:"command"`
-	Split      string  `toml:"split"`
-	Label      string  `toml:"label"`
-	Ratio      float64 `toml:"ratio"`
-	WorkingDir string  `toml:"working_dir"`
+	Command    string    `toml:"command"`
+	Split      string    `toml:"split"`
+	Label      string    `toml:"label"`
+	Ratio      float64   `toml:"ratio"`
+	WorkingDir string    `toml:"working_dir"`
+	WaitFor    *PaneWait `toml:"wait_for"`
+}
+
+// defaultWaitTimeoutMS is how long a wait_for waits when it sets no timeout_ms;
+// maxWaitTimeoutMS (one hour) caps what a config may ask for, which also keeps
+// the millisecond-to-Duration conversion far from overflow.
+const (
+	defaultWaitTimeoutMS = 30000
+	maxWaitTimeoutMS     = 3600000
+)
+
+// PaneWait pauses a project's startup until a pane's command has printed Match
+// (a literal substring, not a pattern), so a command that needs a dev server or
+// a database can be listed after the pane that starts it. TimeoutMS caps the
+// wait and defaults to defaultWaitTimeoutMS; on timeout the project still opens,
+// with a warning, rather than hanging.
+type PaneWait struct {
+	Match     string `toml:"match"`
+	TimeoutMS int    `toml:"timeout_ms"`
+}
+
+// timeout returns how long to wait, applying the default when none was set.
+func (w PaneWait) timeout() time.Duration {
+	if w.TimeoutMS <= 0 {
+		return defaultWaitTimeoutMS * time.Millisecond
+	}
+	return time.Duration(w.TimeoutMS) * time.Millisecond
 }
 
 // splitRatio translates the pane's authored ratio — the share of the split it
@@ -63,6 +93,10 @@ type ProjectTab struct {
 	Command string        `toml:"command"`
 	Panes   []ProjectPane `toml:"panes"`
 
+	// WaitFor is the single-command form's wait_for. A tab with [[tabs.panes]]
+	// sets it on the pane instead.
+	WaitFor *PaneWait `toml:"wait_for"`
+
 	// WorkingDir overrides the directory this tab's panes start in, falling back
 	// to the project's working_dir when empty. A monorepo's frontend and backend
 	// tabs can each sit in their own subdirectory this way.
@@ -77,7 +111,7 @@ type ProjectTab struct {
 // otherwise.
 func (t ProjectTab) effectivePanes() []ProjectPane {
 	if len(t.Panes) == 0 {
-		return []ProjectPane{{Command: t.Command, WorkingDir: t.WorkingDir}}
+		return []ProjectPane{{Command: t.Command, WorkingDir: t.WorkingDir, WaitFor: t.WaitFor}}
 	}
 	panes := make([]ProjectPane, len(t.Panes))
 	for i, p := range t.Panes {
@@ -226,7 +260,16 @@ func validateTabs(label, source string, tabs []ProjectTab) error {
 		if len(t.Panes) > maxPanesPerTab {
 			return fmt.Errorf("%q (%s): tab %q has %d panes; at most %d are allowed", label, source, t.Name, len(t.Panes), maxPanesPerTab)
 		}
+		if len(t.Panes) > 0 && t.WaitFor != nil {
+			return fmt.Errorf("%q (%s): tab %q sets wait_for with [[tabs.panes]]; set it on the pane instead", label, source, t.Name)
+		}
+		if err := validateWaitFor(label, source, t.Name, 1, t.Command, t.WaitFor); err != nil {
+			return err
+		}
 		for j, pane := range t.Panes {
+			if err := validateWaitFor(label, source, t.Name, j+1, pane.Command, pane.WaitFor); err != nil {
+				return err
+			}
 			if j == 0 {
 				continue // the first pane is the tab's root; its split is ignored
 			}
@@ -243,6 +286,24 @@ func validateTabs(label, source string, tabs []ProjectTab) error {
 				return fmt.Errorf("%q (%s): tab %q pane %d has ratio %v; must be greater than 0 and less than 1", label, source, t.Name, j+1, pane.Ratio)
 			}
 		}
+	}
+	return nil
+}
+
+// validateWaitFor checks one pane's wait_for: it needs a match, a timeout inside
+// 0..maxWaitTimeoutMS, and a command to wait on. A nil wait is always valid.
+func validateWaitFor(label, source, tab string, pane int, command string, w *PaneWait) error {
+	if w == nil {
+		return nil
+	}
+	if strings.TrimSpace(w.Match) == "" {
+		return fmt.Errorf("%q (%s): tab %q pane %d has wait_for without a match", label, source, tab, pane)
+	}
+	if w.TimeoutMS < 0 || w.TimeoutMS > maxWaitTimeoutMS {
+		return fmt.Errorf("%q (%s): tab %q pane %d has timeout_ms %d; must be between 0 and %d", label, source, tab, pane, w.TimeoutMS, maxWaitTimeoutMS)
+	}
+	if strings.TrimSpace(command) == "" {
+		return fmt.Errorf("%q (%s): tab %q pane %d has wait_for but no command to wait on", label, source, tab, pane)
 	}
 	return nil
 }

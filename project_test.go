@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // projectsDirIn returns the projects directory under a temp XDG config root and
@@ -440,5 +441,131 @@ func TestResolvePaneDirs(t *testing.T) {
 	}
 	if _, err := resolvePaneDirs(root, []ProjectTab{{Name: "api", WorkingDir: "README"}}); err == nil {
 		t.Fatal("expected a file working_dir to be rejected")
+	}
+}
+
+// TestLoadProjectsParsesWaitFor confirms wait_for decodes on a pane, with and
+// without a timeout, and that its absence leaves the pane's WaitFor nil.
+func TestLoadProjectsParsesWaitFor(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	dir := projectsDirIn(t, tmp)
+
+	content := `name = "Dev"
+working_dir = "/srv/dev"
+
+[[tabs]]
+name = "server"
+
+[[tabs.panes]]
+command = "npm run dev"
+wait_for = { match = "ready in", timeout_ms = 15000 }
+
+[[tabs.panes]]
+command = "npm test"
+`
+	if err := os.WriteFile(filepath.Join(dir, "dev.toml"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	projects, err := loadProjects()
+	if err != nil {
+		t.Fatalf("loadProjects: %v", err)
+	}
+	panes := projects[0].Tabs[0].Panes
+	if w := panes[0].WaitFor; w == nil || w.Match != "ready in" || w.TimeoutMS != 15000 {
+		t.Fatalf("pane 1 wait_for = %+v, want match %q timeout 15000", w, "ready in")
+	}
+	if panes[1].WaitFor != nil {
+		t.Fatalf("pane 2 wait_for = %+v, want nil", panes[1].WaitFor)
+	}
+}
+
+// TestValidateWaitFor confirms a wait_for needs a match, a non-negative timeout
+// and a command to wait on.
+func TestValidateWaitFor(t *testing.T) {
+	proj := func(p ProjectPane) Project {
+		return Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{p}}}}
+	}
+	cases := []struct {
+		name    string
+		pane    ProjectPane
+		wantErr bool
+	}{
+		{"ok", ProjectPane{Command: "x", WaitFor: &PaneWait{Match: "up"}}, false},
+		{"ok with timeout", ProjectPane{Command: "x", WaitFor: &PaneWait{Match: "up", TimeoutMS: 500}}, false},
+		{"empty match", ProjectPane{Command: "x", WaitFor: &PaneWait{Match: " "}}, true},
+		{"negative timeout", ProjectPane{Command: "x", WaitFor: &PaneWait{Match: "up", TimeoutMS: -1}}, true},
+		{"timeout at the cap", ProjectPane{Command: "x", WaitFor: &PaneWait{Match: "up", TimeoutMS: maxWaitTimeoutMS}}, false},
+		{"timeout past the cap", ProjectPane{Command: "x", WaitFor: &PaneWait{Match: "up", TimeoutMS: maxWaitTimeoutMS + 1}}, true},
+		{"overflowing timeout", ProjectPane{Command: "x", WaitFor: &PaneWait{Match: "up", TimeoutMS: 10000000000000}}, true},
+		{"no command", ProjectPane{WaitFor: &PaneWait{Match: "up"}}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if err := proj(c.pane).validate(); (err != nil) != c.wantErr {
+				t.Fatalf("validate() err = %v, wantErr = %v", err, c.wantErr)
+			}
+		})
+	}
+}
+
+// TestValidateTabWaitFor confirms the single-command tab form accepts wait_for,
+// checks it like a pane's, and refuses it next to [[tabs.panes]].
+func TestValidateTabWaitFor(t *testing.T) {
+	wait := &PaneWait{Match: "up"}
+	cases := []struct {
+		name    string
+		tab     ProjectTab
+		wantErr bool
+	}{
+		{"ok", ProjectTab{Name: "t", Command: "x", WaitFor: wait}, false},
+		{"no command", ProjectTab{Name: "t", WaitFor: wait}, true},
+		{"empty match", ProjectTab{Name: "t", Command: "x", WaitFor: &PaneWait{}}, true},
+		{"alongside panes", ProjectTab{Name: "t", Panes: []ProjectPane{{Command: "x"}}, WaitFor: wait}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			p := Project{Name: "A", Tabs: []ProjectTab{c.tab}}
+			if err := p.validate(); (err != nil) != c.wantErr {
+				t.Fatalf("validate() err = %v, wantErr = %v", err, c.wantErr)
+			}
+		})
+	}
+	if got := (ProjectTab{Name: "t", Command: "x", WaitFor: wait}).effectivePanes()[0].WaitFor; got != wait {
+		t.Fatalf("single-command tab lost its wait_for: %+v", got)
+	}
+}
+
+// TestPaneWaitTimeout confirms an unset timeout falls back to the default.
+func TestPaneWaitTimeout(t *testing.T) {
+	if got := (PaneWait{}).timeout(); got != 30*time.Second {
+		t.Fatalf("default timeout = %v, want 30s", got)
+	}
+	if got := (PaneWait{TimeoutMS: 2500}).timeout(); got != 2500*time.Millisecond {
+		t.Fatalf("timeout = %v, want 2.5s", got)
+	}
+}
+
+// TestOutputShows confirms neither the command's own echo nor text that was on
+// screen before it ran (a prompt, a banner) satisfies a wait.
+func TestOutputShows(t *testing.T) {
+	cases := []struct {
+		name, text, match, command string
+		baseline                   int
+		want                       bool
+	}{
+		{"not yet", "$ npm run dev\n", "ready", "npm run dev", 0, false},
+		{"printed", "$ npm run dev\nready in 300ms\n", "ready", "npm run dev", 0, true},
+		{"echo only", "$ npm run dev\n", "dev", "npm run dev", 0, false},
+		{"echo plus output", "$ npm run dev\nlistening: dev\n", "dev", "npm run dev", 0, true},
+		{"prompt contains match", "~/dev $ npm run dev\n", "dev", "npm run dev", 1, false},
+		{"prompt contains match, then output", "~/dev $ npm run dev\nlistening: dev\n", "dev", "npm run dev", 1, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := outputShows(c.text, c.match, c.command, c.baseline); got != c.want {
+				t.Fatalf("outputShows = %v, want %v", got, c.want)
+			}
+		})
 	}
 }

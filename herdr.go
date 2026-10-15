@@ -298,6 +298,71 @@ func (c *herdrClient) waitForPaneText(paneID, probe string, timeout time.Duratio
 	return false
 }
 
+// waitReadLines is how much scrollback waitForPaneOutput reads per poll, enough
+// that a chatty server cannot push the line being waited on out of view.
+const waitReadLines = 2000
+
+// waitPollInterval is how often waitForPaneOutput looks at the pane again.
+const waitPollInterval = 200 * time.Millisecond
+
+// outputShows reports whether text contains match more often than was already
+// there plus what the typed command line accounts for. baseline is the count
+// taken before the command was typed (a prompt or banner that happens to contain
+// match), and the echoed command adds its own occurrences; without discounting
+// both, wait_for = "dev" on "npm run dev" in ~/dev would return at once.
+func outputShows(text, match, command string, baseline int) bool {
+	return strings.Count(text, match) > baseline+strings.Count(command, match)
+}
+
+// matchCount returns how many times match appears in the pane's recent output,
+// or 0 when the pane cannot be read. It first waits for the shell's prompt to be
+// drawn, so the prompt is part of the count rather than mistaken for output later.
+func (c *herdrClient) matchCount(paneID, match string) int {
+	c.waitForPaneReady(paneID, 10*time.Second)
+	text, err := c.paneRead(paneID, "recent_unwrapped", waitReadLines)
+	if err != nil {
+		return 0
+	}
+	return strings.Count(text, match)
+}
+
+// waitForPaneOutput blocks until the pane's recent output shows match, reporting
+// whether it did before the timeout. When it did not, the error is the last
+// failed read, if any, so a pane that could not be read is not mistaken for one
+// that never printed the text.
+//
+// Each read is bounded by the same deadline: the IPC connection has no read
+// timeout of its own, and a herdr that accepts a request but never answers would
+// otherwise hold the whole project open past timeout.
+func (c *herdrClient) waitForPaneOutput(paneID, match, command string, baseline int, timeout time.Duration) (bool, error) {
+	type read struct {
+		text string
+		err  error
+	}
+	var readErr error
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		// Buffered so a read that outlives the deadline can still finish and exit.
+		done := make(chan read, 1)
+		go func() {
+			text, err := c.paneRead(paneID, "recent_unwrapped", waitReadLines)
+			done <- read{text, err}
+		}()
+		select {
+		case r := <-done:
+			if r.err != nil {
+				readErr = r.err
+			} else if outputShows(r.text, match, command, baseline) {
+				return true, nil
+			}
+		case <-time.After(time.Until(deadline)):
+			return false, errors.New("herdr did not answer a pane read before the deadline")
+		}
+		time.Sleep(min(waitPollInterval, max(time.Until(deadline), 0)))
+	}
+	return false, readErr
+}
+
 // closePane terminates a pane and frees its terminal. Closing the focused pane
 // returns focus to an adjacent pane.
 func (c *herdrClient) closePane(paneID string) error {
