@@ -89,8 +89,9 @@ func (c *herdrClient) call(method string, params map[string]any, out any) error 
 }
 
 // worktreeCreateParams builds the worktree.create payload. A blank branch is
-// omitted so herdr can generate its native worktree/<name> branch.
-func worktreeCreateParams(cwd, branch string, focus bool) map[string]any {
+// omitted so herdr can generate its native worktree/<name> branch, and a blank
+// base is omitted so herdr starts a new branch from HEAD of cwd.
+func worktreeCreateParams(cwd, branch, base string, focus bool) map[string]any {
 	params := map[string]any{
 		"cwd":   cwd,
 		"focus": focus,
@@ -98,16 +99,20 @@ func worktreeCreateParams(cwd, branch string, focus bool) map[string]any {
 	if b := strings.TrimSpace(branch); b != "" {
 		params["branch"] = b
 	}
+	if b := strings.TrimSpace(base); b != "" {
+		params["base"] = b
+	}
 	return params
 }
 
 // worktreeCreate asks herdr to create a git worktree from the repo at cwd, on the
-// given branch (blank lets herdr generate a worktree/<name> branch), and — when
-// focus is true — switch to its new workspace. herdr fires a worktree.created
+// given branch (blank lets herdr generate a worktree/<name> branch) started from
+// base (blank means HEAD; ignored by herdr when the branch already exists), and —
+// when focus is true — switch to its new workspace. herdr fires a worktree.created
 // event, which the worktree auto-layout handler reacts to; we do not read the
 // response, so the layout is applied by that handler rather than here.
-func (c *herdrClient) worktreeCreate(cwd, branch string, focus bool) error {
-	return c.call("worktree.create", worktreeCreateParams(cwd, branch, focus), nil)
+func (c *herdrClient) worktreeCreate(cwd, branch, base string, focus bool) error {
+	return c.call("worktree.create", worktreeCreateParams(cwd, branch, base, focus), nil)
 }
 
 // paneSplitParams builds the pane.split payload. A zero ratio is omitted so herdr

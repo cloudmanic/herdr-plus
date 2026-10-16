@@ -76,6 +76,8 @@ Optional global settings live in `config.toml` in that same directory:
 ```toml
 [worktree]
 branch_prefix = "your-name/" # used verbatim; include your own trailing /
+base = "origin/default"      # where new worktree branches start; default "" = HEAD
+fetch = true                 # fetch a remote base first; default true
 
 [projects]
 placement = "zoomed" # overlay, popup, split, tab, or zoomed; default is zoomed
@@ -100,6 +102,16 @@ Inside the browser, **Enter** opens the highlighted project as a normal workspac
 **ctrl+g** opens it as a git worktree. The worktree prompt accepts an optional
 branch name: empty lets herdr generate `worktree/...`, bare names get the optional
 `[worktree] branch_prefix`, and names containing `/` are used as-is.
+
+A **new** branch starts from `HEAD` of the project's `working_dir` by default, so
+it is only as fresh as that checkout. Set `[worktree] base` to start it somewhere
+else: `"origin/default"` fetches origin and uses its default branch (e.g.
+`origin/main`), and any other value is used as a ref (`"origin/develop"`,
+`"main"`). A remote base is fetched first unless `fetch = false`. Network git
+calls get 15s in total and each local one 5s. If the fetch fails or times out the
+last-fetched ref is used; if the ref can't be resolved at all, or `git` isn't on
+your `PATH`, the worktree is created from `HEAD`. Each case prints a warning. A branch that already
+exists locally is checked out as-is, whatever the base.
 
 Opening as a worktree fills its tabs from a matching
 [worktree auto-layout](#worktree-auto-layout) — a file in `worktrees/` whose `repo`

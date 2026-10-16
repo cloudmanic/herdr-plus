@@ -7,11 +7,15 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestIsInsideGitWorkTree confirms the pre-flight check openProjectAsWorktree uses
@@ -27,11 +31,40 @@ func TestIsInsideGitWorkTree(t *testing.T) {
 	// A git-initialized dir is. Skip (rather than fail) if git can't init here, so
 	// the suite still runs in an environment without a usable git.
 	repo := t.TempDir()
-	if out, err := exec.Command("git", "-C", repo, "init").CombinedOutput(); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if out, err := exec.CommandContext(ctx, "git", "-C", repo, "init").CombinedOutput(); err != nil {
 		t.Skipf("git init unavailable, skipping: %v (%s)", err, out)
 	}
 	if !isInsideGitWorkTree(repo) {
 		t.Fatalf("expected %s to be inside a git work tree", repo)
+	}
+}
+
+// TestIsInsideGitWorkTreeWithoutGit confirms a missing or hung git defers the
+// check to herdr (true) instead of reporting "not a git repository", while a git
+// that runs and says no still yields false.
+func TestIsInsideGitWorkTreeWithoutGit(t *testing.T) {
+	notFound := func(context.Context, string, ...string) (string, error) { return "", errGitNotFound }
+	if !insideGitWorkTree(context.Background(), notFound, "/repo") {
+		t.Fatal("git not found: want true (defer to herdr)")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	hung := func(ctx context.Context, _ string, _ ...string) (string, error) {
+		<-ctx.Done()
+		return "", fmt.Errorf("git rev-parse timed out: %w", ctx.Err())
+	}
+	if !insideGitWorkTree(ctx, hung, "/repo") {
+		t.Fatal("git timed out: want true (defer to herdr)")
+	}
+
+	if runtime.GOOS != "windows" {
+		fakeGitOnPath(t, "exit 128")
+		if isInsideGitWorkTree(t.TempDir()) {
+			t.Fatal("git exited non-zero: want false")
+		}
 	}
 }
 

@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -88,7 +89,7 @@ func runProjectsUI() {
 		errExit(err)
 	}
 	if m.worktree {
-		if err := openProjectAsWorktree(client, *m.chosen, m.branch); err != nil {
+		if err := openProjectAsWorktree(client, *m.chosen, m.branch, cfg.Worktree.Base, cfg.worktreeFetch()); err != nil {
 			errExit("could not open project as worktree:", err)
 		}
 		return
@@ -137,7 +138,12 @@ func openProject(client *herdrClient, p Project) error {
 // worktree.created event drives the worktree auto-layout, so a matching file in
 // worktrees/ fills the workspace. Without one the worktree opens bare — the
 // project's own [[tabs]] are not used for this path.
-func openProjectAsWorktree(client *herdrClient, p Project, branch string) error {
+//
+// base and fetch are the [worktree] settings: when base is set, it is resolved
+// (and fetched) here, before herdr creates the checkout, so the new branch — and
+// the layout's tabs started on it — begin from fresh code. A base that can't be
+// resolved falls back to HEAD with a warning rather than failing.
+func openProjectAsWorktree(client *herdrClient, p Project, branch, base string, fetch bool) error {
 	// filepath.Abs already returns an absolute path (or an error), so no separate
 	// IsAbs check is needed after it.
 	expanded, err := p.expandedWorkingDir()
@@ -154,25 +160,39 @@ func openProjectAsWorktree(client *herdrClient, p Project, branch string) error 
 	if !isInsideGitWorkTree(dir) {
 		return fmt.Errorf("not a git repository: %s (opening as a worktree requires one)", dir)
 	}
-	return client.worktreeCreate(dir, branch, true)
+	if strings.TrimSpace(base) != "" && fetch {
+		fmt.Fprintf(os.Stderr, "herdr-plus: resolving worktree base %s…\n", base)
+	}
+	ref, warn := resolveWorktreeBase(dir, base, fetch)
+	if warn != "" {
+		fmt.Fprintln(os.Stderr, "herdr-plus: warning:", warn)
+	}
+	return client.worktreeCreate(dir, branch, ref, true)
 }
 
 // isInsideGitWorkTree reports whether dir is inside a git work tree, so
 // openProjectAsWorktree can give a clear error before asking herdr to create a
 // worktree there. It shells out to git: when git runs and reports the directory is
 // not a work tree it returns false, but when git cannot be run at all (not
-// installed / not on PATH) it returns true, deferring the real check to herdr
-// rather than blocking on git's absence.
+// installed / not on PATH) or doesn't answer within gitLocalTimeout it returns
+// true, deferring the real check to herdr rather than blocking on git.
 func isInsideGitWorkTree(dir string) bool {
-	out, err := exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), gitLocalTimeout)
+	defer cancel()
+	return insideGitWorkTree(ctx, execGit, dir)
+}
+
+// insideGitWorkTree is isInsideGitWorkTree with the git runner passed in.
+func insideGitWorkTree(ctx context.Context, git gitRunner, dir string) bool {
+	out, err := git(ctx, dir, "rev-parse", "--is-inside-work-tree")
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			return false // git ran and said this is not a work tree
 		}
-		return true // git could not run — let herdr make the call
+		return true // git missing or timed out — let herdr make the call
 	}
-	return strings.TrimSpace(string(out)) == "true"
+	return out == "true"
 }
 
 // resolvePaneDirs resolves the directory every pane of every tab should start in,

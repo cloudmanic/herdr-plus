@@ -80,6 +80,46 @@ func TestLoadPluginConfigParsesBranchPrefix(t *testing.T) {
 	}
 }
 
+// TestLoadPluginConfigWorktreeBaseDefaults confirms an unset base keeps the
+// original HEAD behaviour and an unset fetch means fetch.
+func TestLoadPluginConfigWorktreeBaseDefaults(t *testing.T) {
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", t.TempDir())
+
+	cfg, err := loadPluginConfig()
+	if err != nil {
+		t.Fatalf("loadPluginConfig: %v", err)
+	}
+	if cfg.Worktree.Base != "" {
+		t.Fatalf("Base = %q, want empty", cfg.Worktree.Base)
+	}
+	if !cfg.worktreeFetch() {
+		t.Fatal("worktreeFetch() = false, want true when unset")
+	}
+}
+
+// TestLoadPluginConfigParsesWorktreeBase confirms config.toml can set the
+// worktree base and turn fetching off.
+func TestLoadPluginConfigParsesWorktreeBase(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", dir)
+
+	body := "[worktree]\nbase = \"origin/default\"\nfetch = false\n"
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(body), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := loadPluginConfig()
+	if err != nil {
+		t.Fatalf("loadPluginConfig: %v", err)
+	}
+	if cfg.Worktree.Base != "origin/default" {
+		t.Fatalf("Base = %q, want origin/default", cfg.Worktree.Base)
+	}
+	if cfg.worktreeFetch() {
+		t.Fatal("worktreeFetch() = true, want false")
+	}
+}
+
 // TestLoadPluginConfigRejectsMalformedFile confirms parse errors surface instead
 // of being treated as a missing optional config.
 func TestLoadPluginConfigRejectsMalformedFile(t *testing.T) {

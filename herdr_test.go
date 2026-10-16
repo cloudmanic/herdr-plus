@@ -23,7 +23,7 @@ func TestWorktreeCreateParams(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := worktreeCreateParams("/srv/repo", c.branch, true)
+			got := worktreeCreateParams("/srv/repo", c.branch, "", true)
 			if got["cwd"] != "/srv/repo" {
 				t.Fatalf("cwd = %v, want /srv/repo", got["cwd"])
 			}
@@ -38,6 +38,18 @@ func TestWorktreeCreateParams(t *testing.T) {
 				t.Fatalf("branch = %v, want %q", branch, c.wantBranch)
 			}
 		})
+	}
+}
+
+// TestWorktreeCreateParamsBase confirms a base ref is sent only when set, so an
+// unset [worktree] base leaves herdr starting the branch from HEAD.
+func TestWorktreeCreateParamsBase(t *testing.T) {
+	if got := worktreeCreateParams("/srv/repo", "feat/x", "  ", true); got["base"] != nil {
+		t.Fatalf("blank base should be omitted, params=%v", got)
+	}
+	got := worktreeCreateParams("/srv/repo", "feat/x", " origin/main ", true)
+	if got["base"] != "origin/main" {
+		t.Fatalf("base = %v, want origin/main", got["base"])
 	}
 }
 

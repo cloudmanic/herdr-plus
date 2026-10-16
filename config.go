@@ -46,6 +46,17 @@ type PluginConfig struct {
 		// "/" yourself. Empty disables prefixing; a name that already contains "/"
 		// is left untouched (see resolveWorktreeBranch).
 		BranchPrefix string `toml:"branch_prefix"`
+
+		// Base is the ref new worktree branches start from when opened from the
+		// projects browser. Empty keeps herdr's default, HEAD of the project's
+		// working_dir. "origin/default" resolves origin/HEAD (e.g. origin/main);
+		// anything else is used as an explicit ref (see resolveWorktreeBase). A
+		// branch that already exists locally is checked out as-is either way.
+		Base string `toml:"base"`
+
+		// Fetch controls whether a remote-tracking Base (e.g. origin/main) is
+		// fetched before the worktree is created. nil (unset) means true.
+		Fetch *bool `toml:"fetch"`
 	} `toml:"worktree"`
 
 	Projects struct {
@@ -80,6 +91,13 @@ func resolvePlacement(configured, fallback string) string {
 		return fallback
 	}
 	return configured
+}
+
+// worktreeFetch reports whether to fetch a remote-tracking [worktree] base before
+// creating a worktree. Unset means true; only an explicit `fetch = false` turns
+// it off.
+func (c PluginConfig) worktreeFetch() bool {
+	return c.Worktree.Fetch == nil || *c.Worktree.Fetch
 }
 
 // configBaseDir returns the root configuration directory for herdr-plus's
