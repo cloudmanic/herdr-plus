@@ -224,12 +224,24 @@ func checkTabDirs(root string, tabs []ProjectTab) error {
 	return err
 }
 
+// splitTarget resolves the pane a new pane splits off from: the pane named by
+// splitFrom (looked up in byLabel) when set, otherwise the previous pane in the
+// tab — the linear chain. Validation guarantees splitFrom names an earlier
+// pane, so the lookup cannot miss.
+func splitTarget(prev, splitFrom string, byLabel map[string]string) string {
+	if ref := strings.TrimSpace(splitFrom); ref != "" {
+		return byLabel[ref]
+	}
+	return prev
+}
+
 // layoutTabs lays an ordered list of tabs — each with its panes and optional
 // startup commands — into an existing workspace whose root tab and root pane are
 // rootTab and rootPane, and whose own directory is root. tab[0] reuses the root
 // tab (renamed) and root pane; each later tab is created without focus so the
 // first stays in front while the rest spin up. Within a tab the first pane is the
-// tab's root and each later pane is split off the previous one. Every startup
+// tab's root and each later pane is split off the previous one, unless its
+// split_from points at an earlier pane's label instead. Every startup
 // command is run last, once all panes exist, paced to its freshly spawned shell.
 //
 // root anchors the optional per-tab and per-pane working_dir: a relative one is
@@ -277,15 +289,18 @@ func layoutTabs(client *herdrClient, ws, rootTab, rootPane, root string, tabs []
 		}
 
 		prev := tabRoot
+		byLabel := map[string]string{}
 		for j, pane := range t.effectivePanes() {
 			paneID := tabRoot
 			if j > 0 {
-				paneID, err = client.paneSplit(prev, pane.Split, pane.splitRatio(), dirs[i][j], false)
+				target := splitTarget(prev, pane.SplitFrom, byLabel)
+				paneID, err = client.paneSplit(target, pane.Split, pane.splitRatio(), dirs[i][j], false)
 				if err != nil {
 					return fmt.Errorf("split pane %d in tab %q: %w", j+1, t.Name, err)
 				}
 			}
 			if lbl := strings.TrimSpace(pane.Label); lbl != "" {
+				byLabel[lbl] = paneID
 				if err := client.paneRename(paneID, lbl); err != nil {
 					// Labeling is cosmetic — warn but keep building the workspace.
 					fmt.Fprintf(os.Stderr, "herdr-plus: failed to label pane %d in tab %q: %v\n", j+1, t.Name, err)

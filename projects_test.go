@@ -100,3 +100,28 @@ func containsPlacement(args []string, want string) bool {
 	}
 	return false
 }
+
+// TestSplitTarget confirms a pane splits off the pane its split_from names
+// (by label) when set, and falls back to the previous pane in the chain when
+// split_from is blank, so the default linear layout is unchanged.
+func TestSplitTarget(t *testing.T) {
+	byLabel := map[string]string{"A": "w1:p1", "B": "w1:p2"}
+	cases := []struct {
+		name      string
+		prev      string
+		splitFrom string
+		want      string
+	}{
+		{"chain default", "w1:p1", "", "w1:p1"},
+		{"whitespace falls back", "w1:p1", "  \t ", "w1:p1"},
+		{"fork by label", "w1:p2", "A", "w1:p1"},
+		{"trimmed label", "w1:p2", "  B  ", "w1:p2"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := splitTarget(c.prev, c.splitFrom, byLabel); got != c.want {
+				t.Fatalf("splitTarget(%q, %q) = %q, want %q", c.prev, c.splitFrom, got, c.want)
+			}
+		})
+	}
+}
