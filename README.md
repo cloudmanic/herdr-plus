@@ -234,6 +234,38 @@ ratio = 0.3
 
 A tab uses *either* `command` *or* `[[tabs.panes]]`, not both.
 
+By default each pane splits off the previous one — a chain of cuts. That builds
+most workspaces, but not shapes where one pane takes several children (a 2x2
+grid, a bottom bar that spans under a split top row). Set `split_from` to an
+earlier pane's `label` to split off that pane instead. References are checked
+at load time: the label must belong to an earlier pane in the same tab.
+
+```toml
+[[tabs]]
+name = "grid"
+
+[[tabs.panes]]
+label = "editor"
+command = "nvim"
+
+[[tabs.panes]]
+label = "bottom-left"
+split = "down"
+ratio = 0.3           # bottom bar, full width
+
+[[tabs.panes]]
+label = "bottom-right"
+split = "right"
+ratio = 0.5           # right half of the bottom bar
+
+[[tabs.panes]]
+label = "top-right"
+split = "right"
+ratio = 0.5
+split_from = "editor"  # fork off the top pane, not the previous one
+command = "lazygit"
+```
+
 ## Quick Actions
 
 A fuzzy launcher for one-off commands. Trigger it (action

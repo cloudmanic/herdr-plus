@@ -182,6 +182,10 @@ func TestProjectValidate(t *testing.T) {
 		{"ratio of one", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {Ratio: 1}}}}}, true},
 		{"negative ratio", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {Ratio: -0.2}}}}}, true},
 		{"first pane ratio ignored", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{Ratio: 30}}}}}, false},
+		{"ok split_from", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{Label: "root"}, {Label: "fork", SplitFrom: "root"}}}}}, false},
+		{"split_from dangling", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{Label: "root"}, {SplitFrom: "ghost"}}}}}, true},
+		{"split_from forward", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{}, {SplitFrom: "later"}, {Label: "later"}}}}}, true},
+		{"first pane split_from ignored", Project{Name: "A", Tabs: []ProjectTab{{Name: "t", Panes: []ProjectPane{{SplitFrom: "nope"}}}}}, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -247,6 +251,20 @@ func TestEffectivePanes(t *testing.T) {
 	}
 	if sized[1].Ratio != 0.3 {
 		t.Fatalf("pane 2 ratio = %v, want 0.3", sized[1].Ratio)
+	}
+
+	// The root pane has nothing to split off, so its split_from is dropped too;
+	// later panes keep theirs.
+	forked := ProjectTab{Name: "grid", Panes: []ProjectPane{
+		{Command: "nvim", SplitFrom: "ignored"},
+		{Command: "lazygit", Split: "down"},
+		{Command: "tail", Split: "right", SplitFrom: "nvim"},
+	}}.effectivePanes()
+	if forked[0].SplitFrom != "" {
+		t.Fatalf("root pane split_from = %q, want empty", forked[0].SplitFrom)
+	}
+	if forked[2].SplitFrom != "nvim" {
+		t.Fatalf("pane 3 split_from = %q, want nvim", forked[2].SplitFrom)
 	}
 }
 

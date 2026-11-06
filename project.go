@@ -40,6 +40,14 @@ type ProjectPane struct {
 	Label      string  `toml:"label"`
 	Ratio      float64 `toml:"ratio"`
 	WorkingDir string  `toml:"working_dir"`
+
+	// SplitFrom, when set, names (by label) an earlier pane in the same tab
+	// that this pane splits off, instead of the immediately previous pane.
+	// The default chain can only build layouts where every cut hits the most
+	// recently created region; SplitFrom lifts that limit so one pane may fork
+	// several children — 2x2 grids, a full-width bottom bar under a split top
+	// row, and other non-sequential guillotine layouts.
+	SplitFrom string `toml:"split_from"`
 }
 
 // splitRatio translates the pane's authored ratio — the share of the split it
@@ -88,6 +96,7 @@ func (t ProjectTab) effectivePanes() []ProjectPane {
 		if i == 0 {
 			panes[i].Split = ""
 			panes[i].Ratio = 0
+			panes[i].SplitFrom = ""
 			continue
 		}
 		if panes[i].Split == "" {
@@ -241,6 +250,21 @@ func validateTabs(label, source string, tabs []ProjectTab) error {
 			// workspace that looks nothing like the config; catch it at load time.
 			if pane.Ratio < 0 || pane.Ratio >= 1 {
 				return fmt.Errorf("%q (%s): tab %q pane %d has ratio %v; must be greater than 0 and less than 1", label, source, t.Name, j+1, pane.Ratio)
+			}
+			// split_from must name an earlier pane in the same tab (by label); a
+			// forward or dangling reference would fail mid-build with a half-open
+			// workspace, so reject it here instead.
+			if ref := strings.TrimSpace(pane.SplitFrom); ref != "" {
+				found := false
+				for k := 0; k < j; k++ {
+					if strings.TrimSpace(t.Panes[k].Label) == ref {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("%q (%s): tab %q pane %d has split_from %q; must name an earlier pane's label in the same tab", label, source, t.Name, j+1, ref)
+				}
 			}
 		}
 	}
